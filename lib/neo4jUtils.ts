@@ -251,3 +251,21 @@ export const deleteFlow = async (data: any) => {
     console.error("Error deleting the flow ", err);
   }
 };
+
+/* ----------------------------Other--------------------------- */
+
+export const getNodesRelationships = async (data: any) => {
+  try {
+    const query = `MATCH (a:Application)-[r]-(b:Application)
+WHERE a.application_id = "${data.idA}" AND b.application_id = "${data.idB}"
+RETURN r`;
+
+    const result = await executeQuery(query, {});
+
+    if (result) {
+      return result;
+    }
+  } catch (err) {
+    console.error("Error retrieving the relationships ", err);
+  }
+};

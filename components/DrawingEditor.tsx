@@ -37,13 +37,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { executeQuery } from "@/lib/neo4j";
 import { FlowForm } from "./FlowForm";
 import { ApplicationForm } from "./ApplicationForm";
-import { AppWindow, Link, Lock } from "lucide-react";
+import { AppWindow, Link } from "lucide-react";
 import { icons } from "@/assets/icons";
 import { ApplicationShapeUtil } from "./custom_shapes/ApplicationShape";
-import { getApplications, saveApplication, saveFlow } from "@/lib/neo4jUtils";
+import { getApplications, getNodesRelationships, saveApplication, saveFlow } from "@/lib/neo4jUtils";
 
 export function DrawingEditor() {
   const [selected, setSelected] = useState<any>(null);
@@ -150,28 +149,25 @@ export function DrawingEditor() {
   };
 
   const ShapeListener = track(function MetaUiHelper() {
-    const editor = useEditor();
+  const editor = useEditor()
 
-    /*useEffect(() => {
-      const getSelectedShapes = editor.getSelectedShapes();
-      console.log(getSelectedShapes);
-      setSelectedShapes(getSelectedShapes);
-    }, [editor.getSelectedShapes().length]);*/
+  useEffect(() => {
+    const selectedShapes = editor.getSelectedShapes()
+    const onlySelected = editor.getOnlySelectedShape()
 
-    const selectedShape = editor.getOnlySelectedShape();
-    const type = selectedShape?.type;
-    const shapeId = selectedShape?.id;
-    const shapeMeta = selectedShape?.meta;
-    //const bindings = shapeId && editor.getBindingsInvolvingShape(shapeId)
+    setSelectedShapes(selectedShapes)
 
-    if (type == "arrow") {
-      setselectedArrowId(shapeId)
-      setShowFlowContext(true);
+    // Controllo se la selezione è una freccia
+    if (onlySelected?.type === 'arrow') {
+      setselectedArrowId(onlySelected.id)
+      setShowFlowContext(true)
     } else {
-      setShowFlowContext(false);
+      setShowFlowContext(false)
     }
-    return <></>;
-  });
+  }, [editor, editor.getSelectedShapeIds().join()])
+
+  return null
+})
 
   function SelectDrawing() {
     const handleSelectChange = async (id: string) => {
@@ -449,11 +445,83 @@ export function DrawingEditor() {
     );
   }
 
+function getRelationships(nodeA: string, nodeB: string) {
+  const editor = editorRef.current;
+  if (!editor) return;
+
+  const shapeA = editor.getShape(`shape:${nodeA}`);
+  const shapeB = editor.getShape(`shape:${nodeB}`);
+
+  if (!shapeA || !shapeB) {
+    toast.error("Shapes not found on canvas");
+    return;
+  }
+
+  const boundsA = editor.getShapePageBounds(shapeA);
+  const boundsB = editor.getShapePageBounds(shapeB);
+
+  if (!boundsA || !boundsB) {
+    toast.error("Failed to compute bounds");
+    return;
+  }
+
+  const centerA = {
+    x: boundsA.x + boundsA.w / 2,
+    y: boundsA.y + boundsA.h / 2,
+  };
+
+  const centerB = {
+    x: boundsB.x + boundsB.w / 2,
+    y: boundsB.y + boundsB.h / 2,
+  };
+
+  getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
+    if (!result || result.length === 0) {
+      toast.error("There are no relationships between the two applications");
+      return;
+    }
+
+    result.forEach((rel: any, index: number) => {
+      const flowId = rel?.r?.properties?.flow_id;
+      const name = rel?.r?.properties?.name ?? "Connection";
+
+      if (!flowId) {
+        console.warn("Missing flow_id");
+        return;
+      }
+
+      const arrowId = `shape:${flowId}`;
+
+      editor.createShape({
+        id: arrowId,
+        type: "arrow",
+        props: {
+          text: name,
+          arrowheadEnd: "arrow",
+          bend: (index - (result.length - 1) / 2) * 50, // un po' di offset
+          start: { x: centerA.x, y: centerA.y },
+          end: { x: centerB.x, y: centerB.y },
+        },
+      });
+    });
+  });
+}
+
   function CustomContextMenu(props: TLUiContextMenuProps) {
     return (
       <DefaultContextMenu {...props}>
         <TldrawUiMenuGroup id="flowContext">
           <div>
+            {selectedShapes.length >= 2 && (
+          <TldrawUiMenuItem
+            id="show_connections"
+            label="Show connections"
+            onSelect={() => {
+              const [shape1, shape2] = selectedShapes
+              getRelationships(shape1.id.replace(/^shape:/, ""), shape2.id.replace(/^shape:/, ""))
+            }}
+          />
+        )}
             {showFlowContext && (
               <TldrawUiMenuItem
                 id="flow"

@@ -110,6 +110,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
                 }}
               >
                 <img
+                  draggable={false}
                   src={iconUrl}
                   alt={`icon-${i}`}
                   style={{
