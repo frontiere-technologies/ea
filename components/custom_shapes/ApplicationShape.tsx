@@ -9,15 +9,21 @@ import {
 } from '@tldraw/tldraw'
 import React from 'react'
 
-export type ApplicationShape = TLBaseShape<'application', {
-  name: string
-  icons?: string[]
-  w: number
-  h: number
-}>
+export type ApplicationShape = TLBaseShape<
+  'application',
+  {
+    name: string
+    icons?: string[]
+    w: number
+    h: number
+  }
+>
 
 export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
   static override type = 'application' as const
+
+  override isConnectable = () => true
+  override canBind = () => true
 
   override isAspectRatioLocked = () => true
   override canResize = () => true
@@ -35,8 +41,33 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
     color: 'black',
   }
 
+  override getBounds(shape: ApplicationShape) {
+    return {
+      x: 0,
+      y: 0,
+      width: shape.props.w,
+      height: shape.props.h,
+    }
+  }
+
+  override getGeometry(shape: ApplicationShape) {
+    return new Rectangle2d({
+      x: 0,
+      y: 0,
+      width: shape.props.w,
+      height: shape.props.h,
+    })
+  }
+
+  override getOutline(shape: ApplicationShape) {
+    const { w, h } = shape.props
+    const path = new Path2D()
+    path.rect(0, 0, w, h)
+    return path
+  }
+
   override component(shape: ApplicationShape) {
-    const { name, icons = [] } = shape.props
+    const { name, icons = [], w, h } = shape.props
     const color = shape.style?.color ?? 'black'
     const theme = getDefaultColorTheme({})
 
@@ -49,18 +80,24 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
           'https://cdn-icons-png.flaticon.com/512/732/732230.png',
         ]
 
-    // Dimensioni relative per icone e font
-    const iconSquareSize = shape.props.w / 6  
-    const iconImgSize = iconSquareSize * 0.66 
-    const fontSize = shape.props.h * 0.15      
+    const iconSquareSize = w / 6
+    const iconImgSize = iconSquareSize * 0.66
+    const fontSize = h * 0.15
 
     return (
-      <HTMLContainer>
+      <HTMLContainer
+        id="application-shape"
+        style={{
+          width: w,
+          height: h,
+          pointerEvents: 'all',
+        }}
+      >
         <div
           data-shape-ui
           style={{
-            width: shape.props.w,
-            height: shape.props.h,
+            width: '100%',
+            height: '100%',
             border: `2px solid ${theme[color].solid}`,
             borderRadius: 8,
             backgroundColor: 'transparent',
@@ -70,9 +107,9 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
             padding: 8,
             boxSizing: 'border-box',
             userSelect: 'none',
+            pointerEvents: 'all',
           }}
         >
-          {/* Nome centrato e ridimensionato */}
           <div
             style={{
               fontWeight: 'bold',
@@ -85,7 +122,6 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
             {name}
           </div>
 
-          {/* Icone centrate, quadrati neri e dimensioni proporzionali */}
           <div
             style={{
               display: 'flex',
@@ -127,20 +163,6 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
     )
   }
 
-  override getGeometry(shape: ApplicationShape) {
-    return new Rectangle2d({
-      x: 0,
-      y: 0,
-      width: shape.props.w,
-      height: shape.props.h,
-    })
-  }
-
-  override getOutline(shape: ApplicationShape) {
-    const { w, h } = shape.props
-    return new Path2D(`M0,0 H${w} V${h} H0 Z`)
-  }
-
   override indicator(shape: ApplicationShape) {
     const { w, h } = shape.props
     return (
@@ -149,15 +171,13 @@ export class ApplicationShapeUtil extends ShapeUtil<ApplicationShape> {
         y={0}
         width={w}
         height={h}
-        stroke="black"
         fill="none"
-        strokeWidth={1}
+        stroke="none"
       />
     )
   }
 
   override onResize = (shape, { scaleX }) => {
-    // mantiene proporzioni
     return {
       ...shape,
       props: {

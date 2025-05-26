@@ -13,6 +13,7 @@ import {
   loadSnapshot,
   track,
   useEditor,
+  getArrowBindings
 } from "tldraw";
 import "tldraw/tldraw.css";
 import {
@@ -59,9 +60,9 @@ export function DrawingEditor() {
   const [isCollapseOpen, setIsCollapseOpen] = useState(false);
   const [isSVGCollapseOpen, setIsSVGCollapseOpen] = useState(false);
   const previousShapesRef = useRef<Record<string, any>>({});
-
   const [selectedShapes, setSelectedShapes] = useState<any>([]);
   const [selectedArrowId, setselectedArrowId] = useState<any>();
+
 
   useEffect(() => {
     fetchApplications();
@@ -69,7 +70,7 @@ export function DrawingEditor() {
   }, []);
 
   useEffect(() => {
-    if (!setIsFlowDialogOpen) setFlowFormData({});
+    if (!isFlowDialogOpen) setFlowFormData({});
   }, [isFlowDialogOpen]);
 
   const fetchApplications = async () => {
@@ -158,10 +159,10 @@ export function DrawingEditor() {
     }, [editor.getSelectedShapes().length]);*/
 
     const selectedShape = editor.getOnlySelectedShape();
-    console.log(selectedShape)
     const type = selectedShape?.type;
     const shapeId = selectedShape?.id;
     const shapeMeta = selectedShape?.meta;
+    //const bindings = shapeId && editor.getBindingsInvolvingShape(shapeId)
 
     if (type == "arrow") {
       setselectedArrowId(shapeId)
@@ -465,58 +466,37 @@ export function DrawingEditor() {
                   const shape = editor.getOnlySelectedShape();
                   if (!shape || shape.type !== "arrow") return;
 
-                  const { x, y } = shape;
-                  const { start, end } = shape.props;
+                  const bindings = getArrowBindings(editor, shape);
+                  const startId = bindings.start?.toId;
+                  const endId = bindings.end?.toId;
 
-                  // Recupera i due punti collegati
+                  if (!startId || !endId) {
+                    toast.error(
+                      "Error loading application data."
+                    );
+                    return;
+                  }
+
                   const allShapes = editor.getCurrentPageShapes();
-                  const startX = x + start.x;
-                  const startY = y + start.y;
-                  const endX = x + end.x;
-                  const endY = y + end.y;
-
-                  const getClosestApplication = (xPos: number, yPos: number) =>
-                    allShapes.find((s: any) => {
-                      const isApp =
-                        s.type === "application" &&
-                        s.meta?.type === "application";
-                      if (!isApp) return false;
-                      const sx = s.x;
-                      const sy = s.y;
-                      const sw = s.props.w;
-                      const sh = s.props.h;
-                      return (
-                        xPos >= sx &&
-                        xPos <= sx + sw &&
-                        yPos >= sy &&
-                        yPos <= sy + sh
-                      );
-                    });
-
-                  const startApp = getClosestApplication(startX, startY);
-                  const endApp = getClosestApplication(endX, endY);
+                  const startApp = allShapes.find((s: any) => s.id === startId);
+                  const endApp = allShapes.find((s: any) => s.id === endId);
 
                   if (!startApp || !endApp) {
-                    toast.error("Error loading app data");
+                    toast.error(
+                      "Error loading application data."
+                    );
                     return;
                   }
 
                   setFlowFormData({
-                    initiator_application: startApp.meta.data.id,
-                    target_application: endApp.meta.data.id,
+                    initiator_application: startApp.meta?.data?.id,
+                    target_application: endApp.meta?.data?.id,
                   });
+
                   setIsFlowDialogOpen(true);
                 }}
               />
             )}
-            {/*selectedShapes.length && (
-              <TldrawUiMenuItem
-                id="show_flows"
-                label="Show Flows"
-                readonlyOk
-                onSelect={() => alert("test")}
-              />
-            )*/}
           </div>
         </TldrawUiMenuGroup>
         <DefaultContextMenuContent />
