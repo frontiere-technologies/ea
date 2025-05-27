@@ -152,10 +152,10 @@ export function DrawingEditor() {
   const editor = useEditor()
 
   useEffect(() => {
-    const selectedShapes = editor.getSelectedShapes()
+    //const selectedShapes = editor.getSelectedShapes()
     const onlySelected = editor.getOnlySelectedShape()
 
-    setSelectedShapes(selectedShapes)
+    //setSelectedShapes(selectedShapes)
 
     // Controllo se la selezione è una freccia
     if (onlySelected?.type === 'arrow') {
@@ -512,16 +512,23 @@ function getRelationships(nodeA: string, nodeB: string) {
       <DefaultContextMenu {...props}>
         <TldrawUiMenuGroup id="flowContext">
           <div>
-            {selectedShapes.length >= 2 && (
-          <TldrawUiMenuItem
-            id="show_connections"
-            label="Show connections"
-            onSelect={() => {
-              const [shape1, shape2] = selectedShapes
-              getRelationships(shape1.id.replace(/^shape:/, ""), shape2.id.replace(/^shape:/, ""))
-            }}
-          />
-        )}
+              <TldrawUiMenuItem
+                id="show_connections"
+                label="Show connections"
+                onSelect={() => {
+                  const editor = editorRef.current;
+                  if (!editor) return;
+
+                  const shapes = editor.getSelectedShapes();
+                  if (shapes.length < 2) return;
+
+                  const [shape1, shape2] = shapes;
+                  getRelationships(
+                    shape1.id.replace(/^shape:/, ""),
+                    shape2.id.replace(/^shape:/, "")
+                  );
+                }}
+              />
             {showFlowContext && (
               <TldrawUiMenuItem
                 id="flow"
@@ -539,9 +546,7 @@ function getRelationships(nodeA: string, nodeB: string) {
                   const endId = bindings.end?.toId;
 
                   if (!startId || !endId) {
-                    toast.error(
-                      "Error loading application data."
-                    );
+                    toast.error("Error loading application data.");
                     return;
                   }
 
@@ -550,9 +555,7 @@ function getRelationships(nodeA: string, nodeB: string) {
                   const endApp = allShapes.find((s: any) => s.id === endId);
 
                   if (!startApp || !endApp) {
-                    toast.error(
-                      "Error loading application data."
-                    );
+                    toast.error("Error loading application data.");
                     return;
                   }
 

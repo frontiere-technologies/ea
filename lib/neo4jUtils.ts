@@ -4,7 +4,7 @@ import { executeQuery } from "./neo4j";
 export const getApplications = async () => {
   try {
     const results = await executeQuery(
-      "MATCH (a:Application) OPTIONAL MATCH (a)-[r]-() RETURN a, COUNT(r) > 0 AS hasRelations",
+      "MATCH (a:Application) OPTIONAL MATCH (a)-[r]-() RETURN a, COUNT(r) > 0 AS hasRelations ORDER BY a.name",
       {},
       new AbortController().signal
     );
