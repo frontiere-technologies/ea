@@ -573,7 +573,7 @@ export function TablesPage() {
         onOpenChange={setIsApplicationDialogOpen}
       >
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -632,7 +632,7 @@ export function TablesPage() {
 
       <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>

@@ -445,12 +445,16 @@ export function DrawingEditor() {
     );
   }
 
+  
 function getRelationships(nodeA: string, nodeB: string) {
   const editor = editorRef.current;
   if (!editor) return;
 
-  const shapeA = editor.getShape(`shape:${nodeA}`);
-  const shapeB = editor.getShape(`shape:${nodeB}`);
+  const shapeAId = `shape:${nodeA}`;
+  const shapeBId = `shape:${nodeB}`;
+
+  const shapeA = editor.getShape(shapeAId);
+  const shapeB = editor.getShape(shapeBId);
 
   if (!shapeA || !shapeB) {
     toast.error("Shapes not found on canvas");
@@ -498,14 +502,30 @@ function getRelationships(nodeA: string, nodeB: string) {
         props: {
           text: name,
           arrowheadEnd: "arrow",
-          bend: (index - (result.length - 1) / 2) * 50, // un po' di offset
+          bend: (index - (result.length - 1) / 2) * 50,
           start: { x: centerA.x, y: centerA.y },
           end: { x: centerB.x, y: centerB.y },
         },
       });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: arrowId,
+        toId: shapeAId,
+        props: { terminal: "start" },
+      });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: arrowId,
+        toId: shapeBId,
+        props: { terminal: "end" },
+      });
     });
   });
 }
+
+
 
   function CustomContextMenu(props: TLUiContextMenuProps) {
     return (
@@ -578,7 +598,7 @@ function getRelationships(nodeA: string, nodeB: string) {
   function Collapsibles(props: TLUiStylePanelProps) {
     return (
       <div
-        className="p-2 absolute flex flex-col gap-[8px]"
+        className="p-2 absolute flex flex-col gap-[8px] z-[100]"
         style={{ pointerEvents: "auto", top: "50px" }}
       >
         <DrawingCollapsible
@@ -679,28 +699,6 @@ function getRelationships(nodeA: string, nodeB: string) {
       )
     );
 
-    /*editor.createShape({
-      id: `shape:${item.id}`,
-      type: "geo",
-      x: point.x,
-      y: point.y,
-      props: {
-        geo: "rectangle",
-        w: 250,
-        h: 100,
-        dash: "draw",
-        fill: "none",
-        color: "black",
-        font: "sans",
-        size: "m",
-        text: item.name,
-      },
-      meta: {
-        type: "application",
-        data: item,
-      },
-    });*/
-
     editor.createShape({
       id: `shape:${item.id}`,
       type: "application", // custom type
@@ -750,7 +748,7 @@ function getRelationships(nodeA: string, nodeB: string) {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent
-          className="z-[400] sm:max-w-[800px] h-auto flex flex-col"
+          className="z-[700] sm:max-w-[800px] h-auto flex flex-col"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -780,7 +778,7 @@ function getRelationships(nodeA: string, nodeB: string) {
         onOpenChange={setIsApplicationDialogOpen}
       >
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -817,7 +815,7 @@ function getRelationships(nodeA: string, nodeB: string) {
 
       <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
