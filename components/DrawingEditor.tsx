@@ -169,81 +169,7 @@ export function DrawingEditor() {
   return null
 })
 
-  function SelectDrawing() {
-    const handleSelectChange = async (id: string) => {
-      const drawing = drawings.find((d) => String(d.id) === id);
-      if (!drawing) return;
-
-      try {
-        const snapshot = drawing.drawings;
-        const editor = editorRef.current;
-
-        if (editor && snapshot) {
-          loadSnapshot(editor.store, snapshot);
-          requestAnimationFrame(() => {
-            editor.setCamera({ x: 0, y: 0, z: 1 });
-            editor.zoomToFit();
-          });
-          toast.success("Drawing loaded");
-        }
-
-        setSelected(drawing);
-      } catch (err) {
-        console.error("Errore nel caricamento:", err);
-        toast.error("Error loading drawing");
-      }
-    };
-
-    return (
-      <div
-        //className="absolute bottom-3 right-2 z-[1000] flex flex-row items-center bg-none rounded-md"
-        style={{ pointerEvents: "auto" }}
-      >
-        <Select
-          onValueChange={handleSelectChange}
-          value={selected ? String(selected.id) : undefined}
-        >
-          <SelectTrigger
-            aria-label="Select Drawing"
-            className="
-          flex items-center justify-between
-          h-8
-          px-2
-          ml-2
-          rounded-md
-          bg-transparent
-          text-sm font-sm
-          text-gray-700
-          hover:bg-gray-200
-          focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500
-          border border-transparent
-          cursor-pointer
-          min-w-[180px]
-        "
-          >
-            <SelectValue placeholder="New Drawing" />
-          </SelectTrigger>
-
-          <SelectContent
-            side="bottom"
-            align="start"
-            className="max-h-48 w-100 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
-          >
-            {sortedDrawings.map((drawing) => (
-              <SelectItem
-                key={drawing.id}
-                value={String(drawing.id)}
-                className="text-sm"
-              >
-                {drawing.filename}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
-
+  /* ------------------Utility------------------*/
   const saveDrawing = async (obj: any) => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -343,6 +269,86 @@ export function DrawingEditor() {
     });
   };
 
+function getRelationships(nodeA: string, nodeB: string) {
+  const editor = editorRef.current;
+  if (!editor) return;
+
+  const shapeAId = `shape:${nodeA}`;
+  const shapeBId = `shape:${nodeB}`;
+
+  const shapeA = editor.getShape(shapeAId);
+  const shapeB = editor.getShape(shapeBId);
+
+  if (!shapeA || !shapeB) {
+    toast.error("Shapes not found on canvas");
+    return;
+  }
+
+  const boundsA = editor.getShapePageBounds(shapeA);
+  const boundsB = editor.getShapePageBounds(shapeB);
+
+  if (!boundsA || !boundsB) {
+    toast.error("Failed to compute bounds");
+    return;
+  }
+
+  const centerA = {
+    x: boundsA.x + boundsA.w / 2,
+    y: boundsA.y + boundsA.h / 2,
+  };
+
+  const centerB = {
+    x: boundsB.x + boundsB.w / 2,
+    y: boundsB.y + boundsB.h / 2,
+  };
+
+  getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
+    if (!result || result.length === 0) {
+      toast.error("There are no relationships between the two applications");
+      return;
+    }
+
+    result.forEach((rel: any, index: number) => {
+      const flowId = rel?.r?.properties?.flow_id;
+      const name = rel?.r?.properties?.name ?? "Connection";
+
+      if (!flowId) {
+        console.warn("Missing flow_id");
+        return;
+      }
+
+      const arrowId = `shape:${flowId}`;
+
+      editor.createShape({
+        id: arrowId,
+        type: "arrow",
+        props: {
+          text: name,
+          arrowheadEnd: "arrow",
+          bend: (index - (result.length - 1) / 2) * 50,
+          start: { x: centerA.x, y: centerA.y },
+          end: { x: centerB.x, y: centerB.y },
+        },
+      });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: arrowId,
+        toId: shapeAId,
+        props: { terminal: "start" },
+      });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: arrowId,
+        toId: shapeBId,
+        props: { terminal: "end" },
+      });
+    });
+  });
+}
+
+  /* ---------------Custom TLDR--------------------- */
   function customActions() {
     const handleUpdateDrawing = async () => {
       const editor = editorRef.current;
@@ -444,88 +450,6 @@ export function DrawingEditor() {
       </div>
     );
   }
-
-  
-function getRelationships(nodeA: string, nodeB: string) {
-  const editor = editorRef.current;
-  if (!editor) return;
-
-  const shapeAId = `shape:${nodeA}`;
-  const shapeBId = `shape:${nodeB}`;
-
-  const shapeA = editor.getShape(shapeAId);
-  const shapeB = editor.getShape(shapeBId);
-
-  if (!shapeA || !shapeB) {
-    toast.error("Shapes not found on canvas");
-    return;
-  }
-
-  const boundsA = editor.getShapePageBounds(shapeA);
-  const boundsB = editor.getShapePageBounds(shapeB);
-
-  if (!boundsA || !boundsB) {
-    toast.error("Failed to compute bounds");
-    return;
-  }
-
-  const centerA = {
-    x: boundsA.x + boundsA.w / 2,
-    y: boundsA.y + boundsA.h / 2,
-  };
-
-  const centerB = {
-    x: boundsB.x + boundsB.w / 2,
-    y: boundsB.y + boundsB.h / 2,
-  };
-
-  getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
-    if (!result || result.length === 0) {
-      toast.error("There are no relationships between the two applications");
-      return;
-    }
-
-    result.forEach((rel: any, index: number) => {
-      const flowId = rel?.r?.properties?.flow_id;
-      const name = rel?.r?.properties?.name ?? "Connection";
-
-      if (!flowId) {
-        console.warn("Missing flow_id");
-        return;
-      }
-
-      const arrowId = `shape:${flowId}`;
-
-      editor.createShape({
-        id: arrowId,
-        type: "arrow",
-        props: {
-          text: name,
-          arrowheadEnd: "arrow",
-          bend: (index - (result.length - 1) / 2) * 50,
-          start: { x: centerA.x, y: centerA.y },
-          end: { x: centerB.x, y: centerB.y },
-        },
-      });
-
-      editor.createBinding({
-        type: "arrow",
-        fromId: arrowId,
-        toId: shapeAId,
-        props: { terminal: "start" },
-      });
-
-      editor.createBinding({
-        type: "arrow",
-        fromId: arrowId,
-        toId: shapeBId,
-        props: { terminal: "end" },
-      });
-    });
-  });
-}
-
-
 
   function CustomContextMenu(props: TLUiContextMenuProps) {
     return (
@@ -632,6 +556,83 @@ function getRelationships(nodeA: string, nodeB: string) {
     );
   }
 
+  function SelectDrawing() {
+    const handleSelectChange = async (id: string) => {
+      const drawing = drawings.find((d) => String(d.id) === id);
+      if (!drawing) return;
+
+      try {
+        const snapshot = drawing.drawings;
+        const editor = editorRef.current;
+
+        if (editor && snapshot) {
+          loadSnapshot(editor.store, snapshot);
+          requestAnimationFrame(() => {
+            editor.setCamera({ x: 0, y: 0, z: 1 });
+            editor.zoomToFit();
+          });
+          toast.success("Drawing loaded");
+        }
+
+        setSelected(drawing);
+      } catch (err) {
+        console.error("Errore nel caricamento:", err);
+        toast.error("Error loading drawing");
+      }
+    };
+
+    return (
+      <div
+        //className="absolute bottom-3 right-2 z-[1000] flex flex-row items-center bg-none rounded-md"
+        style={{ pointerEvents: "auto" }}
+      >
+        <Select
+          onValueChange={handleSelectChange}
+          value={selected ? String(selected.id) : undefined}
+        >
+          <SelectTrigger
+            aria-label="Select Drawing"
+            className="
+          flex items-center justify-between
+          h-8
+          px-2
+          ml-2
+          rounded-md
+          bg-transparent
+          text-sm font-sm
+          text-gray-700
+          hover:bg-gray-200
+          focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500
+          border border-transparent
+          cursor-pointer
+          min-w-[180px]
+        "
+          >
+            <SelectValue placeholder="New Drawing" />
+          </SelectTrigger>
+
+          <SelectContent
+            side="bottom"
+            align="start"
+            className="max-h-48 w-100 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg z-[1000]"
+          >
+            {sortedDrawings.map((drawing) => (
+              <SelectItem
+                key={drawing.id}
+                value={String(drawing.id)}
+                className="text-sm"
+              >
+                {drawing.filename}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  /*------------------------------*/
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     const data = e.dataTransfer.getData("application/json");
@@ -720,7 +721,7 @@ function getRelationships(nodeA: string, nodeB: string) {
     QuickActions: customActions,
     PageMenu: CustomPageMenu,
     ContextMenu: CustomContextMenu,
-    Canvas: Collapsibles,
+    DebugMenu: Collapsibles,
   };
 
   const sortedDrawings = [...drawings].sort((a, b) => {
