@@ -598,8 +598,8 @@ function getRelationships(nodeA: string, nodeB: string) {
   function Collapsibles(props: TLUiStylePanelProps) {
     return (
       <div
-        className="p-2 absolute flex flex-col gap-[8px] z-[100]"
-        style={{ pointerEvents: "auto", top: "50px" }}
+        className="p-2 absolute flex flex-col gap-[8px] z-[50]"
+        style={{ pointerEvents: "auto", top: "50px"}}
       >
         <DrawingCollapsible
           type="text"
@@ -720,7 +720,7 @@ function getRelationships(nodeA: string, nodeB: string) {
     QuickActions: customActions,
     PageMenu: CustomPageMenu,
     ContextMenu: CustomContextMenu,
-    InFrontOfTheCanvas: Collapsibles,
+    Canvas: Collapsibles,
   };
 
   const sortedDrawings = [...drawings].sort((a, b) => {
@@ -748,7 +748,7 @@ function getRelationships(nodeA: string, nodeB: string) {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent
-          className="z-[700] sm:max-w-[800px] h-auto flex flex-col"
+          className="z-[400] sm:max-w-[800px] h-auto flex flex-col"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -778,7 +778,7 @@ function getRelationships(nodeA: string, nodeB: string) {
         onOpenChange={setIsApplicationDialogOpen}
       >
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -815,7 +815,7 @@ function getRelationships(nodeA: string, nodeB: string) {
 
       <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
