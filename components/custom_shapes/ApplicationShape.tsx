@@ -44,12 +44,13 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
 
     const limitedIcons = icons.length
       ? icons.slice(0, 4)
-      : [
+      : []
+      /*[
           "https://cdn-icons-png.flaticon.com/512/732/732200.png",
           "https://cdn-icons-png.flaticon.com/512/732/732221.png",
           "https://cdn-icons-png.flaticon.com/512/732/732228.png",
           "https://cdn-icons-png.flaticon.com/512/732/732230.png",
-        ];
+        ];*/
 
     const iconSquareSize = w / 6;
     const iconImgSize = iconSquareSize * 0.66;

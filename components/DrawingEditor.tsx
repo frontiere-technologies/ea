@@ -284,69 +284,93 @@ function getRelationships(nodeA: string, nodeB: string) {
     return;
   }
 
-  const boundsA = editor.getShapePageBounds(shapeA);
-  const boundsB = editor.getShapePageBounds(shapeB);
-
-  if (!boundsA || !boundsB) {
-    toast.error("Failed to compute bounds");
-    return;
-  }
-
-  const centerA = {
-    x: boundsA.x + boundsA.w / 2,
-    y: boundsA.y + boundsA.h / 2,
-  };
-
-  const centerB = {
-    x: boundsB.x + boundsB.w / 2,
-    y: boundsB.y + boundsB.h / 2,
-  };
-
   getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
     if (!result || result.length === 0) {
       toast.error("There are no relationships between the two applications");
       return;
     }
 
-    result.forEach((rel: any, index: number) => {
-      const flowId = rel?.r?.properties?.flow_id;
-      const name = rel?.r?.properties?.name ?? "Connection";
+    // Raggruppa per direzione
+    const forward = result.filter(
+      (r: any) =>
+        r.r.properties.initiator_application === nodeA &&
+        r.r.properties.target_application === nodeB
+    );
 
-      if (!flowId) {
-        console.warn("Missing flow_id");
-        return;
-      }
+    const backward = result.filter(
+      (r: any) =>
+        r.r.properties.initiator_application === nodeB &&
+        r.r.properties.target_application === nodeA
+    );
 
-      const arrowId = `shape:${flowId}`;
+    const drawArrow = (
+      rel: any,
+      index: number,
+      total: number,
+      isForward: boolean
+    ) => {
+      const flowId = rel.r.properties.flow_id;
+      const name = rel.r.properties.name ?? "Connection";
+      const from = rel.r.properties.initiator_application;
+      const to = rel.r.properties.target_application;
+
+      const fromShapeId = `shape:${from}`;
+      const toShapeId = `shape:${to}`;
+
+      const fromShape = editor.getShape(fromShapeId);
+      const toShape = editor.getShape(toShapeId);
+
+      if (!fromShape || !toShape) return;
+
+      const boundsFrom = editor.getShapePageBounds(fromShape);
+      const boundsTo = editor.getShapePageBounds(toShape);
+
+      if (!boundsFrom || !boundsTo) return;
+
+      const centerFrom = {
+        x: boundsFrom.x + boundsFrom.w / 2,
+        y: boundsFrom.y + boundsFrom.h / 2,
+      };
+
+      const centerTo = {
+        x: boundsTo.x + boundsTo.w / 2,
+        y: boundsTo.y + boundsTo.h / 2,
+      };
+
+      const bend = (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1);
 
       editor.createShape({
-        id: arrowId,
+        id: `shape:${flowId}`,
         type: "arrow",
         props: {
           text: name,
           arrowheadEnd: "arrow",
-          bend: (index - (result.length - 1) / 2) * 50,
-          start: { x: centerA.x, y: centerA.y },
-          end: { x: centerB.x, y: centerB.y },
+          bend,
+          start: centerFrom,
+          end: centerTo,
         },
       });
 
       editor.createBinding({
         type: "arrow",
-        fromId: arrowId,
-        toId: shapeAId,
+        fromId: `shape:${flowId}`,
+        toId: fromShapeId,
         props: { terminal: "start" },
       });
 
       editor.createBinding({
         type: "arrow",
-        fromId: arrowId,
-        toId: shapeBId,
+        fromId: `shape:${flowId}`,
+        toId: toShapeId,
         props: { terminal: "end" },
       });
-    });
+    };
+
+    forward.forEach((rel, i) => drawArrow(rel, i, forward.length, true));
+    backward.forEach((rel, i) => drawArrow(rel, i, backward.length, false));
   });
 }
+
 
   /* ---------------Custom TLDR--------------------- */
   function customActions() {
