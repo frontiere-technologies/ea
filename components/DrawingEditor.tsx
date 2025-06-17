@@ -366,8 +366,8 @@ function getRelationships(nodeA: string, nodeB: string) {
       });
     };
 
-    forward.forEach((rel, i) => drawArrow(rel, i, forward.length, true));
-    backward.forEach((rel, i) => drawArrow(rel, i, backward.length, false));
+    forward.forEach((rel: any, i: number) => drawArrow(rel, i, forward.length, true));
+    backward.forEach((rel: any, i: number) => drawArrow(rel, i, backward.length, false));
   });
 }
 

@@ -35,6 +35,21 @@ import {
 import { MultiselectDropdown } from "./MultiselectDropdown";
 import { getFlowLabels, getApplicationLabels } from "@/lib/neo4jUtils";
 
+interface NetworkWithBody extends Network {
+  body: {
+    data: {
+      nodes: {
+        add: (node: any) => void;
+        remove: (node: any) => void
+      };
+      edges: {
+        add: (edge: any) => void;
+        remove: (edge: any) => void
+      };
+    };
+  };
+}
+
 type SortConfig = {
   key: string;
   direction: "asc" | "desc";
@@ -223,6 +238,7 @@ export function NetworkGraph() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
     data: {},
+    type: ""
   });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
@@ -344,7 +360,8 @@ export function NetworkGraph() {
               group: "application",
             };
 
-            networkRef.current.body.data.nodes.add(nodeData);
+            const network = networkRef.current as NetworkWithBody;
+            network.body.data.nodes.add(nodeData);
             currentDataRef.current.nodes.set(newNode.elementId, nodeData);
           }
 
@@ -395,7 +412,8 @@ export function NetworkGraph() {
               title: createEdgeTooltip(newNode.properties),
             };
 
-            networkRef.current.body.data.edges.add(edgeData);
+            const network = networkRef.current as NetworkWithBody;
+            network.body.data.edges.add(edgeData);
             currentDataRef.current.edges.set(newNode.elementId, edgeData);
           }
 
@@ -431,6 +449,7 @@ export function NetworkGraph() {
     if (!data) return;
 
     const { elementId, type } = data;
+    const network = networkRef.current as NetworkWithBody;
 
     setIsLoading(true);
 
@@ -439,7 +458,7 @@ export function NetworkGraph() {
         if (result) {
           toast.success("Flow deleted successfully");
           if (networkRef.current) {
-            networkRef.current.body.data.edges.remove(elementId);
+            network.body.data.edges.remove(elementId);
           }
         } else {
           toast.error("Error deleting the flow");
@@ -450,7 +469,7 @@ export function NetworkGraph() {
         if (result) {
           toast.success("Application deleted successfully");
           if (networkRef.current) {
-            networkRef.current.body.data.nodes.remove(elementId);
+            network.body.data.nodes.remove(elementId);
           }
         } else {
           toast.error("Error deleting the application");
@@ -458,7 +477,7 @@ export function NetworkGraph() {
       });
     }
 
-    setIsConfirmModalOpen({ show: false, data: {} });
+    setIsConfirmModalOpen({ show: false, data: {}, type: "" });
     setIsLoading(false);
   };
 
@@ -478,6 +497,7 @@ export function NetworkGraph() {
 
   const expandNode = async (nodeId: string) => {
     if (!networkRef.current) return;
+    const network = networkRef.current as NetworkWithBody;
 
     setIsLoading(true);
     try {
@@ -557,10 +577,10 @@ export function NetworkGraph() {
       });
 
       if (newNodes.length > 0) {
-        networkRef.current.body.data.nodes.add(newNodes);
+        network.body.data.nodes.add(newNodes);
       }
       if (newEdges.length > 0) {
-        networkRef.current.body.data.edges.add(newEdges);
+        network.body.data.edges.add(newEdges);
       }
 
       if (newNodes.length > 0 || newEdges.length > 0) {
@@ -840,6 +860,7 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: applicationData.nodeData,
+                      type: applicationData.nodeData.type
                     });
                     setIsApplicationDialogOpen(false);
                   }}
@@ -898,7 +919,9 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: flowData,
+                      type: flowData.type
                     });
+                    console.log(flowData)
                     setIsFlowDialogOpen(false);
                   }}
                 >
@@ -925,10 +948,10 @@ export function NetworkGraph() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {} })}
+        onClose={() => setIsConfirmModalOpen({ show: false, data: {}, type: "" })}
         onConfirm={() => handleDeleteButton(isConfirmModalOpen.data)}
-        title={`Delete ${isConfirmModalOpen.data.type}`}
-        description={`Are you sure you want to delete this ${isConfirmModalOpen.data.type}? This action cannot be undone.`}
+        title={`Delete ${isConfirmModalOpen.type}`}
+        description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
       />

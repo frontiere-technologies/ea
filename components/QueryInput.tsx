@@ -32,7 +32,7 @@ export function QueryInput({ onQueryResults }: QueryInputProps) {
       );
       onQueryResults(results);
       //toast.success(`Query executed successfully: ${results.length} records returned`);
-    } catch (error) {
+    } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error("Query error:", error);
         toast.error("Failed to execute query: " + (error as Error).message);

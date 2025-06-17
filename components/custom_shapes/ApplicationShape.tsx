@@ -33,14 +33,14 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
     };
   }
 
-  override defaultStyle = {
+  /*override defaultStyle = {
     color: "black",
-  };
+  };*/
 
   override component(shape: ApplicationShape) {
     const { name, icons = [], w, h } = shape.props;
-    const color = shape.style?.color ?? "black";
-    const theme = getDefaultColorTheme({});
+    const color = "black";
+    //const theme = getDefaultColorTheme();
 
     const limitedIcons = icons.length
       ? icons.slice(0, 4)
@@ -62,7 +62,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
           style={{
             width: "100%",
             height: "100%",
-            border: `2px solid ${theme[color].solid}`,
+            border: `2px solid`,
             borderRadius: 8,
             backgroundColor: "transparent",
             display: "flex",
@@ -78,7 +78,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
             style={{
               fontWeight: "bold",
               fontSize,
-              color: theme[color].solid,
+              color: "black",
               textAlign: "center",
               flexShrink: 0,
             }}
@@ -128,7 +128,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
     );
   }
 
-  override onResize = (shape, { scaleX }) => {
+  override onResize = (shape : any, { scaleX }: any) => {
     return {
       ...shape,
       props: {
@@ -139,18 +139,17 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
     };
   };
   override indicator(shape: ApplicationShape) {
-    // Nessun cerchio rosso
     return null;
   }
   override canBind = () => true;
-  override isConnectable = () => true;
+  //override isConnectable = () => true;
 
-  override getBounds(shape: ApplicationShape) {
+  /*override getBounds(shape: ApplicationShape) {
   return {
     x: 0,
     y: 0,
     width: shape.props.w,
     height: shape.props.h,
   }
-}
+}*/
 }

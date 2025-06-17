@@ -50,7 +50,7 @@ export function FlowForm({ onSubmit, data }: FlowFormProps) {
         new AbortController().signal
       );
       setApplications(
-        results.map((record) => ({
+        results.map((record : any) => ({
           value: record.a.properties.application_id,
           label: record.a.properties.name,
         }))

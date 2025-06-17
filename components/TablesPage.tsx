@@ -122,6 +122,7 @@ export function TablesPage() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
     data: {},
+    type: ""
   });
 
   const fetchApplications = async () => {
@@ -210,7 +211,7 @@ export function TablesPage() {
     }));
   };
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: string) => {
     if (value === null || value === undefined) return "-";
     if (typeof value === "boolean") return value ? "Yes" : "No";
     if (Array.isArray(value)) {
@@ -438,7 +439,7 @@ export function TablesPage() {
       });
     }
 
-    setIsConfirmModalOpen({ show: false, data: {} });
+    setIsConfirmModalOpen({ show: false, data: {}, type: "" });
     setIsLoading(false);
   };
 
@@ -601,6 +602,7 @@ export function TablesPage() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: applicationData,
+                      type: applicationData.type
                     });
                     setIsApplicationDialogOpen(false);
                   }}
@@ -655,6 +657,7 @@ export function TablesPage() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: flowData,
+                      type: flowData.type
                     });
                     setIsFlowDialogOpen(false);
                   }}
@@ -682,10 +685,10 @@ export function TablesPage() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {} })}
+        onClose={() => setIsConfirmModalOpen({ show: false, data: {}, type: "" })}
         onConfirm={() => handleDelete(isConfirmModalOpen.data)}
-        title={`Delete ${isConfirmModalOpen.data.type}`}
-        description={`Are you sure you want to delete this ${isConfirmModalOpen.data.type}? This action cannot be undone.`}
+        title={`Delete ${isConfirmModalOpen.type}`}
+        description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
       />

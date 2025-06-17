@@ -61,12 +61,12 @@ export async function executeQuery(cypher: string, params = {}, signal?: AbortSi
         }, { once: true });
       });
 
-      const result = await Promise.race([
+      const result : any = await Promise.race([
         session.run(cypher, params),
         abortPromise
       ]);
 
-      return result.records.map(record => {
+      return result.records.map((record: { keys: any[]; get: (arg0: any) => any; }) => {
         const obj: any = {};
         record.keys.forEach(key => {
           obj[key] = record.get(key);
@@ -83,7 +83,7 @@ export async function executeQuery(cypher: string, params = {}, signal?: AbortSi
         return obj;
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.name === 'AbortError') {
       throw error;
     }
