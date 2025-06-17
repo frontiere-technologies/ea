@@ -33,6 +33,7 @@ import {
   saveFlow,
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import { getFlowLabels, getApplicationLabels } from "@/lib/neo4jUtils";
 
 type SortConfig = {
   key: string;
@@ -223,6 +224,8 @@ export function NetworkGraph() {
     show: false,
     data: {},
   });
+  const [appLabels, setAppLabels] = useState([]);
+  const [flowLabels, setFlowLabels] = useState([]);
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
@@ -687,6 +690,24 @@ export function NetworkGraph() {
   }, []);
 
   useEffect(() => {
+    getApplicationLabels().then((result) => {
+      if (result && result.length > 0) {
+        setAppLabels(result)
+      } else {
+        toast.error("Failed to load applications labels");
+      }
+    });
+
+    getFlowLabels().then((result) => {
+      if (result && result.length > 0) {
+        setFlowLabels(result)
+      } else {
+        toast.error("Failed to load flow labels");
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
@@ -745,7 +766,7 @@ export function NetworkGraph() {
 
         <div className="flex gap-4">
           <MultiselectDropdown
-            options={["App1", "App2", "App3", "App4"]}
+            options={appLabels || []}
             onChange={(selected : any) =>
               console.log("Initiator:", selected)
             }
@@ -753,7 +774,7 @@ export function NetworkGraph() {
           />
 
            <MultiselectDropdown
-            options={["App1", "App2", "App3", "App4"]}
+            options={appLabels || []}
             onChange={(selected : any) =>
               console.log("Target:", selected)
             }
@@ -761,7 +782,7 @@ export function NetworkGraph() {
           />
 
            <MultiselectDropdown
-            options={["Label_1", "Label_2", "Label_3", "Label_4"]}
+            options={flowLabels || []}
             onChange={(selected : any) =>
               console.log("Labels:", selected)
             }

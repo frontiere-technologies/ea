@@ -36,7 +36,7 @@ export function MultiselectDropdown({
   );
 
   return (
-    <div className="border rounded-md shadow-sm bg-white w-[200px] relative">
+    <div className="border rounded-md shadow-sm bg-white w-[220px] relative">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium cursor-pointer select-none">
           <span className="truncate">{placeholder}</span>
@@ -48,42 +48,45 @@ export function MultiselectDropdown({
         </CollapsibleTrigger>
 
         <CollapsibleContent
-          className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-md shadow-md
-                     w-full max-h-[160px] overflow-y-auto px-4 py-2 z-50 animate-collapsible-down"
+          className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-md shadow-md w-full z-50 animate-collapsible-down"
           onClick={(e) => e.stopPropagation()}
         >
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full mb-2 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
+          <div className="px-4 pt-3 pb-2">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
 
-          <div className="space-y-1">
-            {filteredOptions.length === 0 ? (
-              <div className="text-gray-500 text-center text-sm py-2">
-                No options found
-              </div>
-            ) : (
-              filteredOptions.map((option) => {
-                const isSelected = selectedOptions.includes(option);
-                return (
-                  <div
-                    key={option}
-                    onClick={() => toggleOption(option)}
-                    className={`flex justify-between items-center px-3 py-2 rounded cursor-pointer text-sm select-none ${
-                      isSelected
-                        ? "bg-blue-100 text-blue-700 font-medium"
-                        : "hover:bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    <span>{option}</span>
-                    {isSelected && <Check className="w-4 h-4 text-blue-600" />}
-                  </div>
-                );
-              })
-            )}
+          <div className="px-4 pb-3 max-h-[160px] overflow-y-auto">
+            <div className="space-y-1">
+              {filteredOptions.length === 0 ? (
+                <div className="text-gray-500 text-center text-sm py-2">
+                  No options found
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
+                  const isSelected = selectedOptions.includes(option);
+                  return (
+                    <div
+                      key={option}
+                      onClick={() => toggleOption(option)}
+                      className={`flex justify-between items-center px-3 py-2 rounded cursor-pointer text-sm select-none ${
+                        isSelected
+                          ? "bg-blue-100 text-blue-700 font-medium"
+                          : "hover:bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      <span>{option}</span>
+                      {isSelected && <Check className="w-4 h-4 text-blue-600" />}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>

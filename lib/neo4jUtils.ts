@@ -269,3 +269,38 @@ RETURN r`;
     console.error("Error retrieving the relationships ", err);
   }
 };
+
+export const getFlowLabels = async () => {
+  try {
+    const query = `MATCH ()-[r:flow]->()
+WITH COLLECT(r.labels) AS labelsList
+UNWIND labelsList AS labelsString
+UNWIND split(labelsString, ",") AS label
+WITH TRIM(label) AS cleanLabel
+WHERE cleanLabel <> ""
+RETURN COLLECT(DISTINCT cleanLabel) AS allLabels`;
+
+    const result = await executeQuery(query, {});
+
+    if (result) {
+      return result[0].allLabels;
+    }
+  } catch (err) {
+    console.error("Error retrieving the flow labels ", err);
+  }
+};
+
+export const getApplicationLabels = async () => {
+  try {
+    const query = `MATCH (a:Application)
+RETURN COLLECT(a.name) AS applicationNames`;
+
+    const result = await executeQuery(query, {});
+
+    if (result) {
+      return result[0].applicationNames;
+    }
+  } catch (err) {
+    console.error("Error retrieving the app labels ", err);
+  }
+};
