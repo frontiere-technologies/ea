@@ -24,7 +24,15 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { QueryInput } from "@/components/QueryInput";
-import { deleteApplication, deleteFlow, editApplication, editFlow, saveApplication, saveFlow } from "@/lib/neo4jUtils";
+import {
+  deleteApplication,
+  deleteFlow,
+  editApplication,
+  editFlow,
+  saveApplication,
+  saveFlow,
+} from "@/lib/neo4jUtils";
+import { MultiselectDropdown } from "./MultiselectDropdown";
 
 type SortConfig = {
   key: string;
@@ -82,7 +90,7 @@ const options = {
 function transformData(data: any) {
   const result: any = {};
 
-  data.forEach((row : any) => {
+  data.forEach((row: any) => {
     for (const key in row) {
       const item = row[key];
       const {
@@ -206,19 +214,19 @@ export function NetworkGraph() {
   const [graphData, setGraphData] = useState<{
     nodes: any[];
     edges: any[];
-  } | null>({nodes: [], edges : []});
+  } | null>({ nodes: [], edges: [] });
   const [dataTransformed, setDataTransformed] = useState<any>([]);
   const dataTransformedRef = useRef(dataTransformed);
   const [applicationData, setApplicationData] = useState<any>({});
   const [flowData, setFlowData] = useState<any>({});
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
-    data: {}
+    data: {},
   });
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
-    const edges : any = [];
+    const edges: any = [];
 
     //console.log("RESULTS ",results)
     setDataTransformed(transformData(results));
@@ -317,7 +325,6 @@ export function NetworkGraph() {
   };
 
   const handleSaveApplication = async (data: any) => {
-
     if (!data) return;
     setIsLoading(true);
 
@@ -367,8 +374,7 @@ export function NetworkGraph() {
   };
 
   const handleSaveFlow = async (data: any) => {
-
-     if (!data) return;
+    if (!data) return;
     setIsLoading(true);
 
     if (Object.keys(flowData).length === 0) {
@@ -421,34 +427,32 @@ export function NetworkGraph() {
   const handleDeleteButton = async (data: any) => {
     if (!data) return;
 
-    const {elementId, type} = data;
+    const { elementId, type } = data;
 
     setIsLoading(true);
 
     if (type == "flow") {
-
       deleteFlow(data).then((result) => {
-      if (result) {
-        toast.success("Flow deleted successfully");
-        if (networkRef.current) {
+        if (result) {
+          toast.success("Flow deleted successfully");
+          if (networkRef.current) {
             networkRef.current.body.data.edges.remove(elementId);
           }
-      } else {
-        toast.error("Error deleting the flow");
-      }
-    });
-    } else if(type == 'application'){
-
-      deleteApplication(data).then((result) => {
-      if (result) {
-        toast.success("Application deleted successfully");
-        if (networkRef.current) {
-            networkRef.current.body.data.nodes.remove(elementId);
+        } else {
+          toast.error("Error deleting the flow");
         }
-      } else {
-        toast.error("Error deleting the application");
-      }
-    });
+      });
+    } else if (type == "application") {
+      deleteApplication(data).then((result) => {
+        if (result) {
+          toast.success("Application deleted successfully");
+          if (networkRef.current) {
+            networkRef.current.body.data.nodes.remove(elementId);
+          }
+        } else {
+          toast.error("Error deleting the application");
+        }
+      });
     }
 
     setIsConfirmModalOpen({ show: false, data: {} });
@@ -494,8 +498,8 @@ export function NetworkGraph() {
         new AbortController().signal
       );
 
-      const newNodes : any = [];
-      const newEdges : any = [];
+      const newNodes: any = [];
+      const newEdges: any = [];
 
       const radius = 200;
       const angleStep = (2 * Math.PI) / results.length;
@@ -507,7 +511,7 @@ export function NetworkGraph() {
         ...newData,
       }));
 
-      results.forEach((record : any, index : any) => {
+      results.forEach((record: any, index: any) => {
         const nodeA = record.a;
         const nodeB = record.b;
         const relationship = record.e;
@@ -625,7 +629,7 @@ export function NetworkGraph() {
           const nodeId = params.nodes[0];
           const nodeData = dataTransformedRef.current[nodeId];
           nodeData["elementId"] = nodeId;
-          nodeData["type"] = 'application';
+          nodeData["type"] = "application";
           const appData = {
             nodeData,
             hasRelationship: params.edges.length > 0 ? true : false,
@@ -682,59 +686,88 @@ export function NetworkGraph() {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
-      <div className="p-2 border-b flex gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsApplicationDialogOpen(true)}
-              >
-                <AppWindow className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add application</p>
-            </TooltipContent>
-          </Tooltip>
+      <div className="p-2 border-b flex items-center justify-between">
+        {/* Gruppo pulsanti */}
+        <div className="flex gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsApplicationDialogOpen(true)}
+                >
+                  <AppWindow className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add application</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsFlowDialogOpen(true)}
-              >
-                <Line className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add flow</p>
-            </TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsFlowDialogOpen(true)}
+                >
+                  <Line className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add flow</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={isPhysicsEnabled ? "default" : "outline"}
-                size="icon"
-                onClick={togglePhysics}
-              >
-                <Magnet className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isPhysicsEnabled ? "default" : "outline"}
+                  size="icon"
+                  onClick={togglePhysics}
+                >
+                  <Magnet className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div className="flex gap-4">
+          <MultiselectDropdown
+            options={["App1", "App2", "App3", "App4"]}
+            onChange={(selected : any) =>
+              console.log("Initiator:", selected)
+            }
+            placeholder="Initiator Application"
+          />
+
+           <MultiselectDropdown
+            options={["App1", "App2", "App3", "App4"]}
+            onChange={(selected : any) =>
+              console.log("Target:", selected)
+            }
+            placeholder="Target Application"
+          />
+
+           <MultiselectDropdown
+            options={["Label_1", "Label_2", "Label_3", "Label_4"]}
+            onChange={(selected : any) =>
+              console.log("Labels:", selected)
+            }
+            placeholder="Labels"
+          />
+        </div>
       </div>
 
       <div ref={containerRef} className="flex-1 min-h-0">
@@ -871,7 +904,7 @@ export function NetworkGraph() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {}})}
+        onClose={() => setIsConfirmModalOpen({ show: false, data: {} })}
         onConfirm={() => handleDeleteButton(isConfirmModalOpen.data)}
         title={`Delete ${isConfirmModalOpen.data.type}`}
         description={`Are you sure you want to delete this ${isConfirmModalOpen.data.type}? This action cannot be undone.`}
