@@ -40,11 +40,11 @@ interface NetworkWithBody extends Network {
     data: {
       nodes: {
         add: (node: any) => void;
-        remove: (node: any) => void
+        remove: (node: any) => void;
       };
       edges: {
         add: (edge: any) => void;
-        remove: (edge: any) => void
+        remove: (edge: any) => void;
       };
     };
   };
@@ -238,7 +238,7 @@ export function NetworkGraph() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
     data: {},
-    type: ""
+    type: "",
   });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
@@ -712,7 +712,7 @@ export function NetworkGraph() {
   useEffect(() => {
     getApplicationLabels().then((result) => {
       if (result && result.length > 0) {
-        setAppLabels(result)
+        setAppLabels(result);
       } else {
         toast.error("Failed to load applications labels");
       }
@@ -720,7 +720,7 @@ export function NetworkGraph() {
 
     getFlowLabels().then((result) => {
       if (result && result.length > 0) {
-        setFlowLabels(result)
+        setFlowLabels(result);
       } else {
         toast.error("Failed to load flow labels");
       }
@@ -730,6 +730,55 @@ export function NetworkGraph() {
   useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
+
+
+  /* Gestione Dropdown */
+
+  const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
+  const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+
+  function updateQueryWithFilters(
+  baseQuery: string,
+  initiators: string[],
+  targets: string[],
+  labels: string[]
+): string {
+  const filters: string[] = [];
+
+  if (initiators.length > 0) {
+    const initiatorFilter = initiators.map(i => `a.name CONTAINS "${i}"`).join(" OR ");
+    filters.push(`(${initiatorFilter})`);
+  }
+
+  if (targets.length > 0) {
+    const targetFilter = targets.map(t => `b.name CONTAINS "${t}"`).join(" OR ");
+    filters.push(`(${targetFilter})`);
+  }
+
+  if (labels.length > 0) {
+    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
+    filters.push(`(${labelFilter})`);
+  }
+
+  // Regex per estrarre le parti principali della query
+  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
+  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
+  
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
+
+  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
+}
+
+
+  useEffect(() => {
+    setQuery(q =>
+      updateQueryWithFilters(q, selectedInitiators, selectedTargets, selectedLabels)
+    );
+  }, [selectedInitiators, selectedTargets, selectedLabels]);
+
+  /** */
 
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
@@ -787,25 +836,17 @@ export function NetworkGraph() {
         <div className="flex gap-4">
           <MultiselectDropdown
             options={appLabels || []}
-            onChange={(selected : any) =>
-              console.log("Initiator:", selected)
-            }
+            onChange={setSelectedInitiators}
             placeholder="Initiator Application"
           />
-
-           <MultiselectDropdown
+          <MultiselectDropdown
             options={appLabels || []}
-            onChange={(selected : any) =>
-              console.log("Target:", selected)
-            }
+            onChange={setSelectedTargets}
             placeholder="Target Application"
           />
-
-           <MultiselectDropdown
+          <MultiselectDropdown
             options={flowLabels || []}
-            onChange={(selected : any) =>
-              console.log("Labels:", selected)
-            }
+            onChange={setSelectedLabels}
             placeholder="Labels"
           />
         </div>
@@ -820,7 +861,11 @@ export function NetworkGraph() {
       </div>
 
       <div className="mt-4 px-4 pb-4">
-        <QueryInput onQueryResults={handleQueryResults} />
+        <QueryInput
+          onQueryResults={handleQueryResults}
+          query={query}
+          setQuery={setQuery}
+        />
       </div>
 
       <Dialog
@@ -860,7 +905,7 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: applicationData.nodeData,
-                      type: applicationData.nodeData.type
+                      type: applicationData.nodeData.type,
                     });
                     setIsApplicationDialogOpen(false);
                   }}
@@ -919,9 +964,9 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: flowData,
-                      type: flowData.type
+                      type: flowData.type,
                     });
-                    console.log(flowData)
+                    console.log(flowData);
                     setIsFlowDialogOpen(false);
                   }}
                 >
@@ -948,7 +993,9 @@ export function NetworkGraph() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {}, type: "" })}
+        onClose={() =>
+          setIsConfirmModalOpen({ show: false, data: {}, type: "" })
+        }
         onConfirm={() => handleDeleteButton(isConfirmModalOpen.data)}
         title={`Delete ${isConfirmModalOpen.type}`}
         description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
