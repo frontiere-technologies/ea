@@ -59,7 +59,7 @@ export function DrawingEditor() {
   const [isCollapseOpen, setIsCollapseOpen] = useState(false);
   const [isSVGCollapseOpen, setIsSVGCollapseOpen] = useState(false);
   const previousShapesRef = useRef<Record<string, any>>({});
-  const [selectedShapes, setSelectedShapes] = useState<any>([]);
+  const [selectedShapes, setSelectedShapes] = useState<Boolean>(false);
   const [selectedArrowId, setselectedArrowId] = useState<any>();
 
 
@@ -156,6 +156,15 @@ export function DrawingEditor() {
     const onlySelected = editor.getOnlySelectedShape()
 
     //setSelectedShapes(selectedShapes)
+
+    const selectedShapes = editor.getSelectedShapes()
+
+    // Controllo se sono selezionate esattamente due shape di tipo "Application"
+    const isApplicationPair =
+      selectedShapes.length === 2 &&
+      selectedShapes.every((shape) => shape.type === 'application')
+
+    setSelectedShapes(isApplicationPair)
 
     // Controllo se la selezione è una freccia
     if (onlySelected?.type === 'arrow') {
@@ -480,7 +489,7 @@ function getRelationships(nodeA: string, nodeB: string) {
       <DefaultContextMenu {...props}>
         <TldrawUiMenuGroup id="flowContext">
           <div>
-              <TldrawUiMenuItem
+              {selectedShapes && <TldrawUiMenuItem
                 id="show_connections"
                 label="Show connections"
                 onSelect={() => {
@@ -496,7 +505,7 @@ function getRelationships(nodeA: string, nodeB: string) {
                     shape2.id.replace(/^shape:/, "")
                   );
                 }}
-              />
+              />}
             {showFlowContext && (
               <TldrawUiMenuItem
                 id="flow"
