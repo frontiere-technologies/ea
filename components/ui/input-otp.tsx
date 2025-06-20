@@ -1,4 +1,4 @@
-'use client';
+/*'use client';
 
 import * as React from 'react';
 import { OTPInput, OTPInputContext } from 'input-otp';
@@ -68,4 +68,4 @@ const InputOTPSeparator = React.forwardRef<
 ));
 InputOTPSeparator.displayName = 'InputOTPSeparator';
 
-export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };
+export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };*/

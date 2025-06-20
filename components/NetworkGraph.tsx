@@ -24,6 +24,31 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { QueryInput } from "@/components/QueryInput";
+import {
+  deleteApplication,
+  deleteFlow,
+  editApplication,
+  editFlow,
+  saveApplication,
+  saveFlow,
+} from "@/lib/neo4jUtils";
+import { MultiselectDropdown } from "./MultiselectDropdown";
+import { getFlowLabels, getApplicationLabels } from "@/lib/neo4jUtils";
+
+interface NetworkWithBody extends Network {
+  body: {
+    data: {
+      nodes: {
+        add: (node: any) => void;
+        remove: (node: any) => void;
+      };
+      edges: {
+        add: (edge: any) => void;
+        remove: (edge: any) => void;
+      };
+    };
+  };
+}
 
 type SortConfig = {
   key: string;
@@ -81,7 +106,7 @@ const options = {
 function transformData(data: any) {
   const result: any = {};
 
-  data.forEach((row) => {
+  data.forEach((row: any) => {
     for (const key in row) {
       const item = row[key];
       const {
@@ -205,19 +230,22 @@ export function NetworkGraph() {
   const [graphData, setGraphData] = useState<{
     nodes: any[];
     edges: any[];
-  } | null>({nodes: [], edges : []});
+  } | null>({ nodes: [], edges: [] });
   const [dataTransformed, setDataTransformed] = useState<any>([]);
   const dataTransformedRef = useRef(dataTransformed);
   const [applicationData, setApplicationData] = useState<any>({});
   const [flowData, setFlowData] = useState<any>({});
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
-    data: {}
+    data: {},
+    type: "",
   });
+  const [appLabels, setAppLabels] = useState([]);
+  const [flowLabels, setFlowLabels] = useState([]);
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
-    const edges = [];
+    const edges: any = [];
 
     //console.log("RESULTS ",results)
     setDataTransformed(transformData(results));
@@ -317,99 +345,11 @@ export function NetworkGraph() {
 
   const handleSaveApplication = async (data: any) => {
     if (!data) return;
-
     setIsLoading(true);
-    try {
-      const createNodeQuery = `
-        CREATE (a:Application {
-          application_id: $application_id,
-          name: $name,
-          description: $description,
-          ownerships: $ownerships,
-          application_type: $application_type,
-          complexity: $complexity,
-          criticality: $criticality,
-          processes: $processes,
-          active: $active,
-          internal_application_specialists: $internal_application_specialists,
-          business_partner_business_contacts: $business_partner_business_contacts,
-          business_contacts: $business_contacts,
-          internal_developers: $internal_developers,
-          hosting: $hosting,
-          ams: $ams,
-          bi: $bi,
-          disaster_recovery: $disaster_recovery,
-          user_license_type: $user_license_type,
-          access_type: $access_type,
-          sw_supplier: $sw_supplier,
-          ams_expire_date: $ams_expire_date,
-          ams_contacts_email: $ams_contacts_email,
-          ams_contact_phone: $ams_contact_phone,
-          ams_supplier: $ams_supplier,
-          smes_factory: $smes_factory,
-          ams_portal: $ams_portal,
-          organization_family: $organization_family,
-          links_to_documentation: $links_to_documentation,
-          scope: $scope,
-          ams_service: $ams_service,
-          ams_type: $ams_type,
-          decommission_date: $decommission_date,
-          to_be_decommissioned: $to_be_decommissioned,
-          notes: $notes,
-          links_to_sharepoint_documentation: $links_to_sharepoint_documentation
-        })
-        RETURN a
-      `;
 
-      const editNodeQuery = `
-        MATCH (a:Application { application_id: $application_id })
-          SET
-            a.name = $name,
-            a.description = $description,
-            a.ownerships = $ownerships,
-            a.application_type = $application_type,
-            a.complexity = $complexity,
-            a.criticality = $criticality,
-            a.processes = $processes,
-            a.active = $active,
-            a.internal_application_specialists = $internal_application_specialists,
-            a.business_partner_business_contacts = $business_partner_business_contacts,
-            a.business_contacts = $business_contacts,
-            a.internal_developers = $internal_developers,
-            a.hosting = $hosting,
-            a.ams = $ams,
-            a.bi = $bi,
-            a.disaster_recovery = $disaster_recovery,
-            a.user_license_type = $user_license_type,
-            a.access_type = $access_type,
-            a.sw_supplier = $sw_supplier,
-            a.ams_expire_date = $ams_expire_date,
-            a.ams_contacts_email = $ams_contacts_email,
-            a.ams_contact_phone = $ams_contact_phone,
-            a.ams_supplier = $ams_supplier,
-            a.smes_factory = $smes_factory,
-            a.ams_portal = $ams_portal,
-            a.organization_family = $organization_family,
-            a.links_to_documentation = $links_to_documentation,
-            a.scope = $scope,
-            a.ams_service = $ams_service,
-            a.ams_type = $ams_type,
-            a.decommission_date = $decommission_date,
-            a.to_be_decommissioned = $to_be_decommissioned,
-            a.notes = $notes,
-            a.links_to_sharepoint_documentation = $links_to_sharepoint_documentation
-          RETURN a
-      `;
-
-      const result = await executeQuery(
-        Object.keys(applicationData).length === 0
-          ? createNodeQuery
-          : editNodeQuery,
-        data
-      );
-
-      if (result && result.length > 0) {
-        if (Object.keys(applicationData).length === 0) {
+    if (Object.keys(applicationData).length === 0) {
+      saveApplication(data).then((result) => {
+        if (result && result.length > 0) {
           const newNode = result[0].a;
 
           if (networkRef.current) {
@@ -420,7 +360,8 @@ export function NetworkGraph() {
               group: "application",
             };
 
-            networkRef.current.body.data.nodes.add(nodeData);
+            const network = networkRef.current as NetworkWithBody;
+            network.body.data.nodes.add(nodeData);
             currentDataRef.current.nodes.set(newNode.elementId, nodeData);
           }
 
@@ -434,88 +375,31 @@ export function NetworkGraph() {
 
           toast.success("Application added successfully");
         } else {
-          toast.success("Application edited successfully");
+          toast.error("Failed to save application");
         }
-
-        handleQueryResults;
-        setIsApplicationDialogOpen(false);
-      }
-    } catch (error) {
-      console.error("Error saving application:", error);
-      toast.error("Failed to save application: " + (error as Error).message);
-    } finally {
-      setIsLoading(false);
+      });
+    } else {
+      editApplication(data).then((result) => {
+        if (result && result.length > 0) {
+          toast.success("Application edited successfully");
+        } else {
+          toast.error("Failed to edit application");
+        }
+      });
     }
+
+    handleQueryResults;
+    setIsApplicationDialogOpen(false);
+    setIsLoading(false);
   };
 
   const handleSaveFlow = async (data: any) => {
     if (!data) return;
-
     setIsLoading(true);
-    try {
-      const createFlowQuery = `
-        MATCH (initiator:Application {application_id: $initiator_application})
-        MATCH (target:Application {application_id: $target_application})
 
-        CREATE (initiator)-[f:flow {
-          flow_id: $flow_id,
-          name: $name,
-          description: $description,
-          initiator_application: $initiator_application,
-          target_application: $target_application,
-          communication_mode: $communication_mode,
-          intent: $intent,
-          message_format: $message_format,
-          data_flow: $data_flow,
-          protocol: $protocol,
-          frequency: $frequency,
-          estimated_calls_per_day: $estimated_calls_per_day,
-          average_execution_time_in_sec: $average_execution_time_in_sec,
-          average_message_size_in_kb: $average_message_size_in_kb,
-          api_gateway: $api_gateway,
-          release_date: $release_date,
-          notes: $notes,
-          labels: $labels
-        }]->(target)
-        RETURN f
-      `;
-
-      const editFlowQuery = `
-        MATCH (initiator:Application {application_id: $initiator_application})
-        MATCH (target:Application {application_id: $target_application})
-        MATCH (initiator)-[f:flow]->(target)
-
-        SET
-          f.name = $name,
-          f.initiator_application = $initiator_application,
-          f.target_application = $target_application,
-          f.description = $description,
-          f.communication_mode = $communication_mode,
-          f.intent = $intent,
-          f.message_format = $message_format,
-          f.data_flow = $data_flow,
-          f.protocol = $protocol,
-          f.frequency = $frequency,
-          f.estimated_calls_per_day = $estimated_calls_per_day,
-          f.average_execution_time_in_sec = $average_execution_time_in_sec,
-          f.average_message_size_in_kb = $average_message_size_in_kb,
-          f.api_gateway = $api_gateway,
-          f.release_date = $release_date,
-          f.notes = $notes,
-          f.labels = $labels
-        RETURN f
-        `;
-
-      //console.log("Data submit ", data);
-      const result = await executeQuery(
-        Object.keys(flowData).length === 0 ? createFlowQuery : editFlowQuery,
-        data
-      );
-
-      if (result && result.length > 0) {
-        //console.log("Result ", result);
-
-        if (Object.keys(flowData).length === 0) {
+    if (Object.keys(flowData).length === 0) {
+      saveFlow(data).then((result) => {
+        if (result && result.length > 0) {
           const newNode = result[0].f;
 
           if (networkRef.current) {
@@ -528,7 +412,8 @@ export function NetworkGraph() {
               title: createEdgeTooltip(newNode.properties),
             };
 
-            networkRef.current.body.data.edges.add(edgeData);
+            const network = networkRef.current as NetworkWithBody;
+            network.body.data.edges.add(edgeData);
             currentDataRef.current.edges.set(newNode.elementId, edgeData);
           }
 
@@ -542,63 +427,58 @@ export function NetworkGraph() {
 
           toast.success("Flow added successfully");
         } else {
-          toast.success("Flow edited successfully");
+          toast.error("Failed to save flow");
         }
-
-        handleQueryResults;
-        setIsFlowDialogOpen(false);
-      }
-    } catch (error) {
-      console.error("Error saving application:", error);
-      toast.error("Failed to save application: " + (error as Error).message);
-    } finally {
-      setIsLoading(false);
+      });
+    } else {
+      editFlow(data).then((result) => {
+        if (result && result.length > 0) {
+          toast.success("Flow edited successfully");
+        } else {
+          toast.error("Failed to edit flow");
+        }
+      });
     }
+
+    handleQueryResults;
+    setIsFlowDialogOpen(false);
+    setIsLoading(false);
   };
 
   const handleDeleteButton = async (data: any) => {
     if (!data) return;
 
-    const {elementId, type} = data;
+    const { elementId, type } = data;
+    const network = networkRef.current as NetworkWithBody;
 
     setIsLoading(true);
 
     if (type == "flow") {
-      try {
-        const deleteFlowQuery = `MATCH ()-[r:flow]->() WHERE r.flow_id = "${data.flow_id}" DELETE r`;
-        const result = await executeQuery(deleteFlowQuery, {});
-
+      deleteFlow(data).then((result) => {
         if (result) {
-          toast.success("Flow deleted");
-
+          toast.success("Flow deleted successfully");
           if (networkRef.current) {
-            networkRef.current.body.data.edges.remove(elementId);
+            network.body.data.edges.remove(elementId);
           }
+        } else {
+          toast.error("Error deleting the flow");
         }
-      } catch (err) {
-        toast.error("Error deleting the flow");
-      }
-    } else if(type == 'application'){
-      try {
-        const deleteAppQuery = `MATCH (n:Application { application_id: "${data.application_id}" }) DELETE n`;
-        const result = await executeQuery(deleteAppQuery, {});
-
+      });
+    } else if (type == "application") {
+      deleteApplication(data).then((result) => {
         if (result) {
-          toast.success("Application deleted");
-
+          toast.success("Application deleted successfully");
           if (networkRef.current) {
-            networkRef.current.body.data.nodes.remove(elementId);
+            network.body.data.nodes.remove(elementId);
           }
-
+        } else {
+          toast.error("Error deleting the application");
         }
-      } catch (err) {
-        toast.error("Error deleting the application");
-      }
+      });
     }
 
-    setIsConfirmModalOpen({ show: false, data: {} });
+    setIsConfirmModalOpen({ show: false, data: {}, type: "" });
     setIsLoading(false);
-
   };
 
   const togglePhysics = useCallback(() => {
@@ -617,6 +497,7 @@ export function NetworkGraph() {
 
   const expandNode = async (nodeId: string) => {
     if (!networkRef.current) return;
+    const network = networkRef.current as NetworkWithBody;
 
     setIsLoading(true);
     try {
@@ -640,8 +521,8 @@ export function NetworkGraph() {
         new AbortController().signal
       );
 
-      const newNodes = [];
-      const newEdges = [];
+      const newNodes: any = [];
+      const newEdges: any = [];
 
       const radius = 200;
       const angleStep = (2 * Math.PI) / results.length;
@@ -653,7 +534,7 @@ export function NetworkGraph() {
         ...newData,
       }));
 
-      results.forEach((record, index) => {
+      results.forEach((record: any, index: any) => {
         const nodeA = record.a;
         const nodeB = record.b;
         const relationship = record.e;
@@ -696,10 +577,10 @@ export function NetworkGraph() {
       });
 
       if (newNodes.length > 0) {
-        networkRef.current.body.data.nodes.add(newNodes);
+        network.body.data.nodes.add(newNodes);
       }
       if (newEdges.length > 0) {
-        networkRef.current.body.data.edges.add(newEdges);
+        network.body.data.edges.add(newEdges);
       }
 
       if (newNodes.length > 0 || newEdges.length > 0) {
@@ -771,7 +652,7 @@ export function NetworkGraph() {
           const nodeId = params.nodes[0];
           const nodeData = dataTransformedRef.current[nodeId];
           nodeData["elementId"] = nodeId;
-          nodeData["type"] = 'application';
+          nodeData["type"] = "application";
           const appData = {
             nodeData,
             hasRelationship: params.edges.length > 0 ? true : false,
@@ -828,59 +709,147 @@ export function NetworkGraph() {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
+    getApplicationLabels().then((result) => {
+      if (result && result.length > 0) {
+        setAppLabels(result);
+      } else {
+        toast.error("Failed to load applications labels");
+      }
+    });
+
+    getFlowLabels().then((result) => {
+      if (result && result.length > 0) {
+        setFlowLabels(result);
+      } else {
+        toast.error("Failed to load flow labels");
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
+
+  /* Gestione Dropdown */
+
+  const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
+  const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+
+  function updateQueryWithFilters(
+  baseQuery: string,
+  initiators: string[],
+  targets: string[],
+  labels: string[]
+): string {
+  const filters: string[] = [];
+
+  if (initiators.length > 0) {
+    const initiatorFilter = initiators.map(i => `a.name CONTAINS "${i}"`).join(" OR ");
+    filters.push(`(${initiatorFilter})`);
+  }
+
+  if (targets.length > 0) {
+    const targetFilter = targets.map(t => `b.name CONTAINS "${t}"`).join(" OR ");
+    filters.push(`(${targetFilter})`);
+  }
+
+  if (labels.length > 0) {
+    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
+    filters.push(`(${labelFilter})`);
+  }
+
+  // Regex per estrarre le parti principali della query
+  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
+  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
+  
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
+
+  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
+}
+
+
+  useEffect(() => {
+    setQuery(q =>
+      updateQueryWithFilters(q, selectedInitiators, selectedTargets, selectedLabels)
+    );
+  }, [selectedInitiators, selectedTargets, selectedLabels]);
+
+  /** */
+
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
-      <div className="p-2 border-b flex gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsApplicationDialogOpen(true)}
-              >
-                <AppWindow className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add application</p>
-            </TooltipContent>
-          </Tooltip>
+      <div className="p-2 border-b flex items-center justify-between">
+        {/* Gruppo pulsanti */}
+        <div className="flex gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsApplicationDialogOpen(true)}
+                >
+                  <AppWindow className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add application</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsFlowDialogOpen(true)}
-              >
-                <Line className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add flow</p>
-            </TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsFlowDialogOpen(true)}
+                >
+                  <Line className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add flow</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={isPhysicsEnabled ? "default" : "outline"}
-                size="icon"
-                onClick={togglePhysics}
-              >
-                <Magnet className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isPhysicsEnabled ? "default" : "outline"}
+                  size="icon"
+                  onClick={togglePhysics}
+                >
+                  <Magnet className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div className="flex gap-4">
+          <MultiselectDropdown
+            options={appLabels || []}
+            onChange={setSelectedInitiators}
+            placeholder="Initiator Application"
+          />
+          <MultiselectDropdown
+            options={appLabels || []}
+            onChange={setSelectedTargets}
+            placeholder="Target Application"
+          />
+          <MultiselectDropdown
+            options={flowLabels || []}
+            onChange={setSelectedLabels}
+            placeholder="Labels"
+          />
+        </div>
       </div>
 
       <div ref={containerRef} className="flex-1 min-h-0">
@@ -892,7 +861,11 @@ export function NetworkGraph() {
       </div>
 
       <div className="mt-4 px-4 pb-4">
-        <QueryInput onQueryResults={handleQueryResults} />
+        <QueryInput
+          onQueryResults={handleQueryResults}
+          query={query}
+          setQuery={setQuery}
+        />
       </div>
 
       <Dialog
@@ -900,7 +873,7 @@ export function NetworkGraph() {
         onOpenChange={setIsApplicationDialogOpen}
       >
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -932,6 +905,7 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: applicationData.nodeData,
+                      type: applicationData.nodeData.type,
                     });
                     setIsApplicationDialogOpen(false);
                   }}
@@ -963,7 +937,7 @@ export function NetworkGraph() {
 
       <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
         <DialogContent
-          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
           aria-describedby="dialog-description"
         >
           <DialogHeader>
@@ -990,7 +964,9 @@ export function NetworkGraph() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: flowData,
+                      type: flowData.type,
                     });
+                    console.log(flowData);
                     setIsFlowDialogOpen(false);
                   }}
                 >
@@ -1017,10 +993,12 @@ export function NetworkGraph() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {}})}
+        onClose={() =>
+          setIsConfirmModalOpen({ show: false, data: {}, type: "" })
+        }
         onConfirm={() => handleDeleteButton(isConfirmModalOpen.data)}
-        title={`Delete ${isConfirmModalOpen.data.type}`}
-        description={`Are you sure you want to delete this ${isConfirmModalOpen.data.type}? This action cannot be undone.`}
+        title={`Delete ${isConfirmModalOpen.type}`}
+        description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
       />

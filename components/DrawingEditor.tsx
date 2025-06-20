@@ -1,12 +1,19 @@
 import {
+  DefaultContextMenu,
+  DefaultContextMenuContent,
   DefaultPageMenu,
   DefaultQuickActions,
   DefaultQuickActionsContent,
   TLComponents,
-  TLUiAssetUrlOverrides,
+  TLUiContextMenuProps,
+  TLUiStylePanelProps,
   Tldraw,
+  TldrawUiMenuGroup,
   TldrawUiMenuItem,
   loadSnapshot,
+  track,
+  useEditor,
+  getArrowBindings
 } from "tldraw";
 import "tldraw/tldraw.css";
 import {
@@ -24,21 +31,65 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SaveDrawingForm } from "./SaveDrawingForm";
+import { DrawingCollapsible } from "./Collapsible";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { FlowForm } from "./FlowForm";
+import { ApplicationForm } from "./ApplicationForm";
+import { AppWindow, Link } from "lucide-react";
+import { icons } from "@/assets/icons";
+import { ApplicationShapeUtil } from "./custom_shapes/ApplicationShape";
+import { getApplications, getNodesRelationships, saveApplication, saveFlow } from "@/lib/neo4jUtils";
 
 export function DrawingEditor() {
   const [selected, setSelected] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [drawings, setDrawings] = useState<any[]>([]);
+  const [showFlowContext, setShowFlowContext] = useState(false);
   const editorRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
+  const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
+  const [flowFormData, setFlowFormData] = useState<any>({});
+  const [applications, setApplications] = useState<any[]>([]);
+  const [dragDropApplications, setDragDropApplications] = useState<any[]>([]);
+  const [isCollapseOpen, setIsCollapseOpen] = useState(false);
+  const [isSVGCollapseOpen, setIsSVGCollapseOpen] = useState(false);
+  const previousShapesRef = useRef<Record<string, any>>({});
+  const [selectedShapes, setSelectedShapes] = useState<Boolean>(false);
+  const [selectedArrowId, setselectedArrowId] = useState<any>();
+
 
   useEffect(() => {
+    fetchApplications();
     fetchDrawings();
   }, []);
+
+  useEffect(() => {
+    if (!isFlowDialogOpen) setFlowFormData({});
+  }, [isFlowDialogOpen]);
+
+  const fetchApplications = async () => {
+    getApplications().then((result) => {
+      if (result && result.length > 0) {
+        const apps = result.map((r: any) => r.a);
+        setApplications(apps);
+
+        const transformedData = apps.map((item: any) => ({
+          id: item.properties.application_id,
+          name: item.properties.name,
+          selected: false,
+        }));
+
+        setDragDropApplications(transformedData);
+      } else {
+        toast.error("Failed to load applications");
+      }
+    });
+  };
 
   const fetchDrawings = async () => {
     const { data, error } = await supabase.from("ea-drawings").select("*");
@@ -49,6 +100,85 @@ export function DrawingEditor() {
     }
   };
 
+  function handleRemoveShape(id: string | number) {
+    setDragDropApplications((prev) =>
+      prev.map((app) => (app.id === id ? { ...app, selected: false } : app))
+    );
+  }
+
+  const ShapeRemoval = () => {
+    const editor = useEditor();
+
+    useEffect(() => {
+      if (!editor) return;
+
+      // Salva snapshot iniziale delle shape
+      previousShapesRef.current = Object.fromEntries(
+        editor.getCurrentPageShapes().map((s: any) => [s.id, s])
+      );
+
+      function onChange() {
+        const currentShapes = Object.fromEntries(
+          editor.getCurrentPageShapes().map((s: any) => [s.id, s])
+        );
+
+        // Trova shape che erano presenti prima ma ora non più
+        const removedShapeIds = Object.keys(previousShapesRef.current).filter(
+          (id) => !(id in currentShapes)
+        );
+
+        if (removedShapeIds.length > 0) {
+          removedShapeIds.forEach((removedId) => {
+            const cleanId = removedId.replace(/^shape:/, "");
+            handleRemoveShape(cleanId);
+          });
+        }
+
+        // Aggiorna snapshot
+        previousShapesRef.current = currentShapes;
+      }
+
+      editor.on("change", onChange);
+
+      return () => {
+        editor.off("change", onChange);
+      };
+    }, [editor]);
+
+    return null;
+  };
+
+  const ShapeListener = track(function MetaUiHelper() {
+  const editor = useEditor()
+
+  useEffect(() => {
+    //const selectedShapes = editor.getSelectedShapes()
+    const onlySelected = editor.getOnlySelectedShape()
+
+    //setSelectedShapes(selectedShapes)
+
+    const selectedShapes = editor.getSelectedShapes()
+
+    // Controllo se sono selezionate esattamente due shape di tipo "Application"
+    const isApplicationPair =
+      selectedShapes.length === 2 &&
+      selectedShapes.every((shape) => shape.type === 'application')
+
+    setSelectedShapes(isApplicationPair)
+
+    // Controllo se la selezione è una freccia
+    if (onlySelected?.type === 'arrow') {
+      setselectedArrowId(onlySelected.id)
+      setShowFlowContext(true)
+    } else {
+      setShowFlowContext(false)
+    }
+  }, [editor, editor.getSelectedShapeIds().join()])
+
+  return null
+})
+
+  /* ------------------Utility------------------*/
   const saveDrawing = async (obj: any) => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -82,6 +212,176 @@ export function DrawingEditor() {
       });
   };
 
+  const handleApplicationSubmit = async (data: any) => {
+    try {
+      const transformedData = {
+        ...data,
+        ams_contact_phone: data.ams_contact_phone || "",
+        ams_expire_date: data.ams_expire_date || null,
+        ams_supplier: data.ams_supplier || "",
+        ams_portal: data.ams_portal || "",
+        links_to_documentation: data.links_to_documentation || "",
+        ams_type: data.ams_type || "",
+        decommission_date: data.decommission_date || null,
+      };
+
+      await handleSaveApplication(transformedData);
+    } catch (error) {
+      console.error("Error transforming data:", error);
+      toast.error("Invalid format in one or more fields");
+    }
+  };
+
+  const handleFlowSubmit = async (data: any) => {
+    try {
+      const transformedData = {
+        ...data,
+        //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        release_date: data.release_date || null,
+      };
+
+      //console.log("Data -> ", transformedData)
+      await handleSaveFlow(transformedData);
+    } catch (error) {
+      console.error("Error transforming data:", error);
+      toast.error("Invalid format in one or more fields");
+    }
+  };
+
+  const handleSaveApplication = async (data: any) => {
+    if (!data) return;
+
+    setIsLoading(true);
+    saveApplication(data).then((result) => {
+      if (result && result.length > 0) {
+        toast.success("Application added successfully");
+        setIsApplicationDialogOpen(false);
+      } else {
+        toast.error("Failed to save application");
+      }
+      setIsLoading(false);
+    }).finally(() => fetchApplications());
+  };
+
+  const handleSaveFlow = async (data: any) => {
+    if (!data) return;
+
+    setIsLoading(true);
+    saveFlow(data).then((result) => {
+      if (result && result.length > 0) {
+        toast.success("Flow added successfully");
+        setIsFlowDialogOpen(false);
+      } else {
+        toast.error("Failed to save flow");
+      }
+      setIsLoading(false);
+    });
+  };
+
+function getRelationships(nodeA: string, nodeB: string) {
+  const editor = editorRef.current;
+  if (!editor) return;
+
+  const shapeAId = `shape:${nodeA}`;
+  const shapeBId = `shape:${nodeB}`;
+
+  const shapeA = editor.getShape(shapeAId);
+  const shapeB = editor.getShape(shapeBId);
+
+  if (!shapeA || !shapeB) {
+    toast.error("Shapes not found on canvas");
+    return;
+  }
+
+  getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
+    if (!result || result.length === 0) {
+      toast.error("There are no relationships between the two applications");
+      return;
+    }
+
+    // Raggruppa per direzione
+    const forward = result.filter(
+      (r: any) =>
+        r.r.properties.initiator_application === nodeA &&
+        r.r.properties.target_application === nodeB
+    );
+
+    const backward = result.filter(
+      (r: any) =>
+        r.r.properties.initiator_application === nodeB &&
+        r.r.properties.target_application === nodeA
+    );
+
+    const drawArrow = (
+      rel: any,
+      index: number,
+      total: number,
+      isForward: boolean
+    ) => {
+      const flowId = rel.r.properties.flow_id;
+      const name = rel.r.properties.name ?? "Connection";
+      const from = rel.r.properties.initiator_application;
+      const to = rel.r.properties.target_application;
+
+      const fromShapeId = `shape:${from}`;
+      const toShapeId = `shape:${to}`;
+
+      const fromShape = editor.getShape(fromShapeId);
+      const toShape = editor.getShape(toShapeId);
+
+      if (!fromShape || !toShape) return;
+
+      const boundsFrom = editor.getShapePageBounds(fromShape);
+      const boundsTo = editor.getShapePageBounds(toShape);
+
+      if (!boundsFrom || !boundsTo) return;
+
+      const centerFrom = {
+        x: boundsFrom.x + boundsFrom.w / 2,
+        y: boundsFrom.y + boundsFrom.h / 2,
+      };
+
+      const centerTo = {
+        x: boundsTo.x + boundsTo.w / 2,
+        y: boundsTo.y + boundsTo.h / 2,
+      };
+
+      const bend = (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1);
+
+      editor.createShape({
+        id: `shape:${flowId}`,
+        type: "arrow",
+        props: {
+          text: name,
+          arrowheadEnd: "arrow",
+          bend,
+          start: centerFrom,
+          end: centerTo,
+        },
+      });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: `shape:${flowId}`,
+        toId: fromShapeId,
+        props: { terminal: "start" },
+      });
+
+      editor.createBinding({
+        type: "arrow",
+        fromId: `shape:${flowId}`,
+        toId: toShapeId,
+        props: { terminal: "end" },
+      });
+    };
+
+    forward.forEach((rel: any, i: number) => drawArrow(rel, i, forward.length, true));
+    backward.forEach((rel: any, i: number) => drawArrow(rel, i, backward.length, false));
+  });
+}
+
+
+  /* ---------------Custom TLDR--------------------- */
   function customActions() {
     const handleUpdateDrawing = async () => {
       const editor = editorRef.current;
@@ -125,8 +425,10 @@ export function DrawingEditor() {
             className="tlui-menu__item tlui-button tlui-button__menu tlui-button__default"
             title="Edit drawing"
           >
-            <div className={"tlui-button__icon" + (!selected ? " opacity-50" : "")}>
-              <img src="/svg/edit_icon.svg" alt="Edit" className="w-4 h-4"/>
+            <div
+              className={"tlui-button__icon" + (!selected ? " opacity-50" : "")}
+            >
+              <img src="/svg/edit_icon.svg" alt="Edit" className="w-4 h-4" />
             </div>
           </button>
 
@@ -138,6 +440,28 @@ export function DrawingEditor() {
           >
             <div className="tlui-button__icon">
               <img src="/svg/save_icon.svg" alt="Save" className="w-4 h-4" />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsApplicationDialogOpen(true)}
+            className="tlui-menu__item tlui-button tlui-button__default"
+            title="New Application"
+          >
+            <div className="tlui-button__icon">
+              <AppWindow className="h-4 w-4" />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsFlowDialogOpen(true)}
+            className="tlui-menu__item tlui-button tlui-button__default"
+            title="New Flow"
+          >
+            <div className="tlui-button__icon">
+              <Link className="h-4 w-4" />
             </div>
           </button>
         </div>
@@ -155,8 +479,112 @@ export function DrawingEditor() {
         }}
       >
         <SelectDrawing />
-
         <DefaultPageMenu />
+      </div>
+    );
+  }
+
+  function CustomContextMenu(props: TLUiContextMenuProps) {
+    return (
+      <DefaultContextMenu {...props}>
+        <TldrawUiMenuGroup id="flowContext">
+          <div>
+              {selectedShapes && <TldrawUiMenuItem
+                id="show_connections"
+                label="Show connections"
+                onSelect={() => {
+                  const editor = editorRef.current;
+                  if (!editor) return;
+
+                  const shapes = editor.getSelectedShapes();
+                  if (shapes.length < 2) return;
+
+                  const [shape1, shape2] = shapes;
+                  getRelationships(
+                    shape1.id.replace(/^shape:/, ""),
+                    shape2.id.replace(/^shape:/, "")
+                  );
+                }}
+              />}
+            {showFlowContext && (
+              <TldrawUiMenuItem
+                id="flow"
+                label="Flusso EA"
+                readonlyOk
+                onSelect={() => {
+                  const editor = editorRef.current;
+                  if (!editor) return;
+
+                  const shape = editor.getOnlySelectedShape();
+                  if (!shape || shape.type !== "arrow") return;
+
+                  const bindings = getArrowBindings(editor, shape);
+                  const startId = bindings.start?.toId;
+                  const endId = bindings.end?.toId;
+
+                  if (!startId || !endId) {
+                    toast.error("Error loading application data.");
+                    return;
+                  }
+
+                  const allShapes = editor.getCurrentPageShapes();
+                  const startApp = allShapes.find((s: any) => s.id === startId);
+                  const endApp = allShapes.find((s: any) => s.id === endId);
+
+                  if (!startApp || !endApp) {
+                    toast.error("Error loading application data.");
+                    return;
+                  }
+
+                  setFlowFormData({
+                    initiator_application: startApp.meta?.data?.id,
+                    target_application: endApp.meta?.data?.id,
+                  });
+
+                  setIsFlowDialogOpen(true);
+                }}
+              />
+            )}
+          </div>
+        </TldrawUiMenuGroup>
+        <DefaultContextMenuContent />
+      </DefaultContextMenu>
+    );
+  }
+
+  function Collapsibles(props: TLUiStylePanelProps) {
+    return (
+      <div
+        className="p-2 absolute flex flex-col gap-[8px] z-[50]"
+        style={{ pointerEvents: "auto", top: "50px"}}
+      >
+        <DrawingCollapsible
+          type="text"
+          title="Applications"
+          items={dragDropApplications}
+          isOpen={isCollapseOpen}
+          onToggle={(open: boolean) => setIsCollapseOpen(open)}
+        />
+
+        <DrawingCollapsible
+          type="images"
+          title="Icons"
+          items={Object.values(icons)}
+          isOpen={isSVGCollapseOpen}
+          onToggle={(open: boolean) => setIsSVGCollapseOpen(open)}
+          footer={(search) => (
+            <a
+              href={`https://fonts.google.com/icons?icon.query=${encodeURIComponent(
+                search
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline text-sm"
+            >
+              Search on Google Icons
+            </a>
+          )}
+        />
       </div>
     );
   }
@@ -219,7 +647,7 @@ export function DrawingEditor() {
           <SelectContent
             side="bottom"
             align="start"
-            className="max-h-48 w-100 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg"
+            className="max-h-48 w-100 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg z-[1000]"
           >
             {sortedDrawings.map((drawing) => (
               <SelectItem
@@ -236,10 +664,97 @@ export function DrawingEditor() {
     );
   }
 
+  /*------------------------------*/
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("application/json");
+    if (!data || !editorRef.current) return;
+
+    const item = JSON.parse(data);
+    const editor = editorRef.current;
+
+    const bounds = (e.target as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - bounds.left;
+    const y = e.clientY - bounds.top;
+
+    const point = editor.screenToPage({ x, y });
+
+    // SVG
+    if (item.svg) {
+      const assetId = `asset:${crypto.randomUUID()}`;
+      const svgDataUrl = `data:image/svg+xml,${encodeURIComponent(item.svg)}`;
+
+      editor.store.put([
+        {
+          id: assetId,
+          typeName: "asset",
+          type: "image",
+          props: {
+            src: svgDataUrl,
+            mimeType: "image/svg+xml",
+            w: 100,
+            h: 100,
+            name: `svg-${assetId}`,
+            isAnimated: false,
+          },
+
+          meta: {},
+        },
+      ]);
+
+      editor.createShape({
+        id: `shape:${crypto.randomUUID()}`,
+        type: "image",
+        x: point.x,
+        y: point.y,
+        props: {
+          assetId: assetId,
+          w: 100,
+          h: 100,
+        },
+      });
+
+      return;
+    }
+
+    // Altrimenti crea una shape standard (applicazione)
+    const existingShape = editor
+      .getCurrentPageShapes()
+      .find((shape: any) => shape.meta?.data?.id === item.id);
+
+    if (existingShape) {
+      return;
+    }
+
+    setDragDropApplications((prev) =>
+      prev.map((app) =>
+        app.id === item.id ? { ...app, selected: !app.selected } : app
+      )
+    );
+
+    editor.createShape({
+      id: `shape:${item.id}`,
+      type: "application", // custom type
+      x: point.x,
+      y: point.y,
+      props: {
+        w: 250,
+        h: 100,
+        name: item.name,
+      },
+      meta: {
+        type: "application",
+        data: item,
+      },
+    });
+  }
+
   const components: TLComponents = {
     QuickActions: customActions,
-    //NavigationPanel: SelectDrawing,
     PageMenu: CustomPageMenu,
+    ContextMenu: CustomContextMenu,
+    DebugMenu: Collapsibles,
   };
 
   const sortedDrawings = [...drawings].sort((a, b) => {
@@ -248,13 +763,21 @@ export function DrawingEditor() {
 
   return (
     <>
-      <div className="w-full h-full border rounded-lg bg-card overflow-hidden">
+      <div
+        className="w-full h-full border rounded-lg bg-card overflow-hidden"
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+      >
         <Tldraw
+          shapeUtils={[ApplicationShapeUtil]}
           components={components}
           onMount={(editor) => {
             editorRef.current = editor;
           }}
-        />
+        >
+          <ShapeListener />
+          <ShapeRemoval />
+        </Tldraw>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -280,6 +803,78 @@ export function DrawingEditor() {
             <Button type="submit" form="save-drawing-form">
               Save drawing
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isApplicationDialogOpen}
+        onOpenChange={setIsApplicationDialogOpen}
+      >
+        <DialogContent
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          aria-describedby="dialog-description"
+        >
+          <DialogHeader>
+            <DialogTitle>Add new application</DialogTitle>
+          </DialogHeader>
+          <p id="dialog-description" className="sr-only">
+            Use this form to create a new application and add it to the network
+            graph.
+          </p>
+          <ScrollArea className="flex-1 px-4">
+            <div className="py-4">
+              <ApplicationForm onSubmit={handleApplicationSubmit} data={{}} />
+            </div>
+          </ScrollArea>
+          <DialogFooter className="mt-4 w-full">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsApplicationDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="application-form"
+                disabled={isLoading}
+              >
+                Save application
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
+        <DialogContent
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
+          aria-describedby="dialog-description"
+        >
+          <DialogHeader>
+            <DialogTitle>Add new flow</DialogTitle>
+          </DialogHeader>
+          <p id="dialog-description" className="sr-only">
+            Use this form to create a new flow.
+          </p>
+          <ScrollArea className="flex-1 px-4">
+            <div className="py-4">
+              <FlowForm onSubmit={handleFlowSubmit} data={flowFormData} />
+            </div>
+          </ScrollArea>
+          <DialogFooter className="mt-4 w-full">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsFlowDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" form="flow-form" disabled={isLoading}>
+                Save flow
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -68,12 +68,12 @@ export function FormField({
                       if (valueIndex === -1) {
                         field.onChange([...currentValues, value]);
                       } else {
-                        field.onChange(currentValues.filter((v) => v !== value));
+                        field.onChange(currentValues.filter((v: any) => v !== value));
                       }
                     }
                   : field.onChange}
                 value={multiple ? field.value?.[0] : field.value}
-                multiple={multiple}
+                //multiple={multiple}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={placeholder} />

@@ -8,11 +8,12 @@ import { executeQuery } from "@/lib/neo4j";
 import { toast } from "sonner";
 
 interface QueryInputProps {
+  query: string;
+  setQuery: (newQuery: string) => void;
   onQueryResults: (results: any[]) => void;
 }
 
-export function QueryInput({ onQueryResults }: QueryInputProps) {
-  const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) WHERE a.name = \"sga-it\" RETURN a, e, b");
+export function QueryInput({ query, setQuery, onQueryResults }: QueryInputProps) {
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -32,7 +33,7 @@ export function QueryInput({ onQueryResults }: QueryInputProps) {
       );
       onQueryResults(results);
       //toast.success(`Query executed successfully: ${results.length} records returned`);
-    } catch (error) {
+    } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error("Query error:", error);
         toast.error("Failed to execute query: " + (error as Error).message);
