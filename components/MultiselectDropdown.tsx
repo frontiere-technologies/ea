@@ -81,14 +81,12 @@ export function MultiselectDropdown({
                     onClick={() => toggleOption(option)}
                     className={`flex justify-between items-center px-3 py-2 rounded cursor-pointer text-sm select-none ${
                       isSelected
-                        ? "bg-blue-100 text-blue-700 font-medium"
+                        ? "bg-gray-200 text-gray-900 font-medium"
                         : "hover:bg-gray-100 text-gray-800"
                     }`}
                   >
                     <span>{option}</span>
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-blue-600" />
-                    )}
+                    {isSelected && <Check className="w-4 h-4 text-gray-900" />}
                   </div>
                 );
               })
@@ -101,7 +99,7 @@ export function MultiselectDropdown({
               disabled={selectedOptions.length === 0}
               variant="ghost"
               size="sm"
-              className="text-xs text-blue-600 disabled:text-gray-400 p-0 h-auto hover:bg-transparent hover:text-blue-600"
+              className="text-xs text-gray-900 disabled:text-gray-400 p-0 h-auto hover:bg-transparent hover:text-gray-900"
             >
               Clear all
             </Button>

@@ -31,9 +31,10 @@ import {
   editFlow,
   saveApplication,
   saveFlow,
+  getFlowLabels, 
+  getApplicationLabels
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
-import { getFlowLabels, getApplicationLabels } from "@/lib/neo4jUtils";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -865,6 +866,7 @@ export function NetworkGraph() {
           onQueryResults={handleQueryResults}
           query={query}
           setQuery={setQuery}
+          showHistory={true}
         />
       </div>
 
