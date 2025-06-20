@@ -33,27 +33,8 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
     };
   }
 
-  /*override defaultStyle = {
-    color: "black",
-  };*/
-
   override component(shape: ApplicationShape) {
     const { name, icons = [], w, h } = shape.props;
-    const color = "black";
-    //const theme = getDefaultColorTheme();
-
-    const limitedIcons = icons.length
-      ? icons.slice(0, 4)
-      : []
-      /*[
-          "https://cdn-icons-png.flaticon.com/512/732/732200.png",
-          "https://cdn-icons-png.flaticon.com/512/732/732221.png",
-          "https://cdn-icons-png.flaticon.com/512/732/732228.png",
-          "https://cdn-icons-png.flaticon.com/512/732/732230.png",
-        ];*/
-
-    const iconSquareSize = w / 6;
-    const iconImgSize = iconSquareSize * 0.66;
     const fontSize = h * 0.15;
 
     return (
@@ -67,7 +48,8 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
             backgroundColor: "transparent",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
+            justifyContent: "center", // centra verticalmente
+            alignItems: "center",     // centra orizzontalmente
             padding: 8,
             boxSizing: "border-box",
             userSelect: "none",
@@ -80,11 +62,16 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
               fontSize,
               color: "black",
               textAlign: "center",
-              flexShrink: 0,
             }}
           >
             {name}
           </div>
+
+          {/*
+          // commented for potential future use
+          const limitedIcons = icons.length ? icons.slice(0, 4) : [];
+          const iconSquareSize = w / 6;
+          const iconImgSize = iconSquareSize * 0.66;
 
           <div
             style={{
@@ -92,6 +79,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
               gap: 8,
               justifyContent: "center",
               alignItems: "center",
+              marginTop: 8,
               flexShrink: 0,
             }}
           >
@@ -123,12 +111,13 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
               </div>
             ))}
           </div>
+          */}
         </div>
       </HTMLContainer>
     );
   }
 
-  override onResize = (shape : any, { scaleX }: any) => {
+  override onResize = (shape: any, { scaleX }: any) => {
     return {
       ...shape,
       props: {
@@ -138,18 +127,10 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
       },
     };
   };
+
   override indicator(shape: ApplicationShape) {
     return null;
   }
-  override canBind = () => true;
-  //override isConnectable = () => true;
 
-  /*override getBounds(shape: ApplicationShape) {
-  return {
-    x: 0,
-    y: 0,
-    width: shape.props.w,
-    height: shape.props.h,
-  }
-}*/
+  override canBind = () => true;
 }
