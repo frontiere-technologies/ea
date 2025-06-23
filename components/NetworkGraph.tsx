@@ -38,7 +38,6 @@ import {
 import { MultiselectDropdown } from "./MultiselectDropdown";
 import {
   ContextMenu,
-  ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
 } from "@/components/ui/context-menu";
@@ -261,6 +260,45 @@ export function NetworkGraph() {
     } else if (contextTarget.type === "edge") {
       setIsFlowDialogOpen(true);
     }
+  };
+
+  const handleContainerContextMenu = (
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault();
+    if (!networkRef.current) return;
+
+    const pointer = { x: event.clientX, y: event.clientY };
+    const nodeId = networkRef.current.getNodeAt(pointer);
+    const edgeId = networkRef.current.getEdgeAt(pointer);
+
+    if (!nodeId && !edgeId) {
+      setContextMenuOpen(false);
+      return;
+    }
+
+    if (nodeId) {
+      networkRef.current.selectNodes([nodeId]);
+      const nodeData = dataTransformedRef.current[nodeId];
+      nodeData["elementId"] = nodeId;
+      nodeData["type"] = "application";
+      const appData = {
+        nodeData,
+        hasRelationship:
+          networkRef.current.getConnectedEdges(nodeId).length > 0,
+      };
+      setApplicationData(appData);
+      setContextTarget({ type: "node", id: nodeId });
+    } else if (edgeId) {
+      networkRef.current.selectEdges([edgeId]);
+      const edgeData = dataTransformedRef.current[edgeId];
+      edgeData["elementId"] = edgeId;
+      setFlowData(edgeData);
+      setContextTarget({ type: "edge", id: edgeId });
+    }
+
+    setContextMenuPos({ x: event.clientX, y: event.clientY });
+    setContextMenuOpen(true);
   };
 
   const handleQueryResults = useCallback((results: any[]) => {
@@ -665,39 +703,7 @@ export function NetworkGraph() {
         }
       });
 
-      // Show custom context menu on right click
-      networkRef.current.on("oncontext", (params) => {
-        params.event.preventDefault();
-        if (!networkRef.current) return;
 
-        const pointer = params.pointer.DOM;
-        const nodeId = networkRef.current.getNodeAt(pointer);
-        const edgeId = networkRef.current.getEdgeAt(pointer);
-
-        if (!nodeId && !edgeId) return;
-
-        if (nodeId) {
-          networkRef.current.selectNodes([nodeId]);
-          const nodeData = dataTransformedRef.current[nodeId];
-          nodeData["elementId"] = nodeId;
-          nodeData["type"] = "application";
-          const appData = {
-            nodeData,
-            hasRelationship: params.edges.length > 0 ? true : false,
-          };
-          setApplicationData(appData);
-          setContextTarget({ type: "node", id: nodeId });
-        } else if (edgeId) {
-          networkRef.current.selectEdges([edgeId]);
-          const edgeData = dataTransformedRef.current[edgeId];
-          edgeData["elementId"] = edgeId;
-          setFlowData(edgeData);
-          setContextTarget({ type: "edge", id: edgeId });
-        }
-
-        setContextMenuPos({ x: params.event.clientX, y: params.event.clientY });
-        setContextMenuOpen(true);
-      });
 
       networkRef.current.once("afterDrawing", () => {
         networkRef.current?.fit();
@@ -881,15 +887,17 @@ export function NetworkGraph() {
       </div>
 
       <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
-        <ContextMenuTrigger asChild>
-          <div ref={containerRef} className="flex-1 min-h-0">
-            {isLoading && (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            )}
-          </div>
-        </ContextMenuTrigger>
+        <div
+          ref={containerRef}
+          className="flex-1 min-h-0"
+          onContextMenu={handleContainerContextMenu}
+        >
+          {isLoading && (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
+        </div>
         <ContextMenuContent
           style={{ position: "fixed", top: contextMenuPos.y, left: contextMenuPos.x }}
         >
