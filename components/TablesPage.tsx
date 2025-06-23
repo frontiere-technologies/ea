@@ -257,15 +257,15 @@ export function TablesPage() {
     return result;
   }
 
-  const openDialog = (tableShown: string) => {
+  const openDialog = (tableShown: string, rowId: string | null) => {
+    if (!rowId) return;
+
     if (tableShown == "applications") {
-      setApplicationData(
-        cleanObj(applications.find((obj) => obj.id === selectedRowId))
-      );
+      setApplicationData(cleanObj(applications.find((obj) => obj.id === rowId)));
       setFlowData({});
       setIsApplicationDialogOpen(true);
     } else {
-      setFlowData(flows.find((obj) => obj.id === selectedRowId));
+      setFlowData(flows.find((obj) => obj.id === rowId));
       setApplicationData({});
       setIsFlowDialogOpen(true);
     }
@@ -461,7 +461,7 @@ export function TablesPage() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => openDialog(tableShown)}
+              onClick={() => openDialog(tableShown, selectedRowId)}
               disabled={!selectedRowId}
             >
               <Pencil className={`h-4 w-4`} />
@@ -489,6 +489,9 @@ export function TablesPage() {
                     <TableRow>
                       <TableHead className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm">
                         Select
+                      </TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm">
+                        Edit
                       </TableHead>
                       {columns.map((column: any) => (
                         <TableHead
@@ -518,6 +521,15 @@ export function TablesPage() {
                             checked={selectedRowId === item.id}
                             onChange={() => setSelectedRowId(item.id)}
                           />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDialog(tableShown, item.id)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                         {columns.map((column: any) => (
                           <TableCell
