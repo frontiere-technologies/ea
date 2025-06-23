@@ -32,10 +32,16 @@ import {
   getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
-  getFlowLabels, 
+  getFlowLabels,
   getApplicationLabels
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -242,8 +248,20 @@ export function NetworkGraph() {
     data: {},
     type: "",
   });
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [contextTarget, setContextTarget] = useState<{ type: "node" | "edge" | null; id?: string }>({ type: null });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
+
+  const handleContextEdit = () => {
+    setContextMenuOpen(false);
+    if (contextTarget.type === "node") {
+      setIsApplicationDialogOpen(true);
+    } else if (contextTarget.type === "edge") {
+      setIsFlowDialogOpen(true);
+    }
+  };
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
@@ -647,11 +665,19 @@ export function NetworkGraph() {
         }
       });
 
-      //Visualizzare la modale di modifica
+      // Show custom context menu on right click
       networkRef.current.on("oncontext", (params) => {
         params.event.preventDefault();
-        if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0];
+        if (!networkRef.current) return;
+
+        const pointer = params.pointer.DOM;
+        const nodeId = networkRef.current.getNodeAt(pointer);
+        const edgeId = networkRef.current.getEdgeAt(pointer);
+
+        if (!nodeId && !edgeId) return;
+
+        if (nodeId) {
+          networkRef.current.selectNodes([nodeId]);
           const nodeData = dataTransformedRef.current[nodeId];
           nodeData["elementId"] = nodeId;
           nodeData["type"] = "application";
@@ -660,17 +686,17 @@ export function NetworkGraph() {
             hasRelationship: params.edges.length > 0 ? true : false,
           };
           setApplicationData(appData);
-          setIsApplicationDialogOpen(true);
-        }
-
-        if (params.edges.length > 0 && params.nodes.length === 0) {
-          const edgeId = params.edges[0];
+          setContextTarget({ type: "node", id: nodeId });
+        } else if (edgeId) {
+          networkRef.current.selectEdges([edgeId]);
           const edgeData = dataTransformedRef.current[edgeId];
           edgeData["elementId"] = edgeId;
           setFlowData(edgeData);
-          //console.log('Clicked edge data:', edgeData);
-          setIsFlowDialogOpen(true);
+          setContextTarget({ type: "edge", id: edgeId });
         }
+
+        setContextMenuPos({ x: params.event.clientX, y: params.event.clientY });
+        setContextMenuOpen(true);
       });
 
       networkRef.current.once("afterDrawing", () => {
@@ -854,13 +880,22 @@ export function NetworkGraph() {
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 min-h-0">
-        {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+        <ContextMenuTrigger asChild>
+          <div ref={containerRef} className="flex-1 min-h-0">
+            {isLoading && (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent
+          style={{ position: "fixed", top: contextMenuPos.y, left: contextMenuPos.x }}
+        >
+          <ContextMenuItem onSelect={handleContextEdit}>Edit</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <div className="mt-4 px-4 pb-4">
         <QueryInput
