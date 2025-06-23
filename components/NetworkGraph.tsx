@@ -740,23 +740,33 @@ export function NetworkGraph() {
   const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [initiatorTargetOperator, setInitiatorTargetOperator] =
+    useState<"AND" | "OR">("AND");
 
   function updateQueryWithFilters(
   baseQuery: string,
   initiators: string[],
   targets: string[],
-  labels: string[]
+  labels: string[],
+  operator: "AND" | "OR"
 ): string {
   const filters: string[] = [];
 
-  if (initiators.length > 0) {
-    const initiatorFilter = initiators.map(i => `a.name CONTAINS "${i}"`).join(" OR ");
-    filters.push(`(${initiatorFilter})`);
-  }
+  const initiatorParts =
+    initiators.length > 0
+      ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
+      : "";
+  const targetParts =
+    targets.length > 0
+      ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
+      : "";
 
-  if (targets.length > 0) {
-    const targetFilter = targets.map(t => `b.name CONTAINS "${t}"`).join(" OR ");
-    filters.push(`(${targetFilter})`);
+  if (initiatorParts && targetParts) {
+    filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
+  } else if (initiatorParts) {
+    filters.push(`(${initiatorParts})`);
+  } else if (targetParts) {
+    filters.push(`(${targetParts})`);
   }
 
   if (labels.length > 0) {
@@ -767,7 +777,7 @@ export function NetworkGraph() {
   // Regex per estrarre le parti principali della query
   const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
   const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
-  
+
   const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
 
   return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
@@ -776,9 +786,15 @@ export function NetworkGraph() {
 
   useEffect(() => {
     setQuery(q =>
-      updateQueryWithFilters(q, selectedInitiators, selectedTargets, selectedLabels)
+      updateQueryWithFilters(
+        q,
+        selectedInitiators,
+        selectedTargets,
+        selectedLabels,
+        initiatorTargetOperator
+      )
     );
-  }, [selectedInitiators, selectedTargets, selectedLabels]);
+  }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
 
   /** */
 
@@ -841,6 +857,14 @@ export function NetworkGraph() {
             onChange={setSelectedInitiators}
             placeholder="Initiator Application"
           />
+          <Button
+            variant="outline"
+            onClick={() =>
+              setInitiatorTargetOperator((op) => (op === "AND" ? "OR" : "AND"))
+            }
+          >
+            {initiatorTargetOperator}
+          </Button>
           <MultiselectDropdown
             options={appLabels || []}
             onChange={setSelectedTargets}
