@@ -338,7 +338,7 @@ export function ApplicationForm({ onSubmit }: ApplicationFormProps) {
                   { value: "Utenza Applicativa", label: "Utenza applicativa" },
                   { value: "Password ADFS (O365)", label: "Password ADFS (O365)" },
                   { value: "Password applicazione", label: "Password applicazione" },
-                  { value: "Password di domino (LDAP)", label: "Password di domino (LDAP)" }
+                  { value: "Password di dominio (LDAP)", label: "Password di dominio (LDAP)" }
                 ]}
                 multiple
               />
