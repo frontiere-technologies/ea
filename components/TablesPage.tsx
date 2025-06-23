@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ArrowUpDown, Pencil } from "lucide-react";
+import { RefreshCw, ArrowUpDown, Pencil, Download } from "lucide-react";
 import { executeQuery } from "@/lib/neo4j";
 import { toast } from "sonner";
 import { ApplicationForm } from "./ApplicationForm";
 import { FlowForm } from "./FlowForm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmModal } from "./ConfirmModal";
+import * as XLSX from "xlsx";
 import {
   deleteApplication,
   deleteFlow,
@@ -436,7 +437,22 @@ export function TablesPage() {
     }
 
     setIsConfirmModalOpen({ show: false, data: {}, type: "" });
-    setIsLoading(false);
+  setIsLoading(false);
+  };
+
+  const exportToExcel = (data: TableData[], cols: string[], name: string) => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      data.map((item) => {
+        const row: Record<string, any> = {};
+        cols.forEach((col) => {
+          row[col] = formatValue(item[col]);
+        });
+        return row;
+      })
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, name);
+    XLSX.writeFile(workbook, `${name}.xlsx`);
   };
 
   const renderTable = (data: TableData[]) => {
@@ -462,6 +478,13 @@ export function TablesPage() {
               <RefreshCw
                 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
               />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => exportToExcel(sortedData, columns, tableShown)}
+            >
+              <Download className="h-4 w-4" />
             </Button>
           </div>
         </div>
