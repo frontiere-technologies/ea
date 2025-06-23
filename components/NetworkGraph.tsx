@@ -29,6 +29,7 @@ import {
   deleteFlow,
   editApplication,
   editFlow,
+  getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
 } from "@/lib/neo4jUtils";
@@ -710,7 +711,7 @@ export function NetworkGraph() {
   }, []);
 
   useEffect(() => {
-    getApplicationLabels().then((result) => {
+    getConnectedApplicationLabels().then((result) => {
       if (result && result.length > 0) {
         setAppLabels(result);
       } else {

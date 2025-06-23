@@ -278,6 +278,7 @@ UNWIND labelsList AS labelsString
 UNWIND split(labelsString, ",") AS label
 WITH TRIM(label) AS cleanLabel
 WHERE cleanLabel <> ""
+ORDER BY cleanLabel
 RETURN COLLECT(DISTINCT cleanLabel) AS allLabels`;
 
     const result = await executeQuery(query, {});
@@ -292,7 +293,7 @@ RETURN COLLECT(DISTINCT cleanLabel) AS allLabels`;
 
 export const getApplicationLabels = async () => {
   try {
-    const query = `MATCH (a:Application)
+    const query = `MATCH (a:Application) ORDER BY a.name
 RETURN COLLECT(a.name) AS applicationNames`;
 
     const result = await executeQuery(query, {});
@@ -302,5 +303,20 @@ RETURN COLLECT(a.name) AS applicationNames`;
     }
   } catch (err) {
     console.error("Error retrieving the app labels ", err);
+  }
+};
+
+export const getConnectedApplicationLabels = async () => {
+  try {
+    const query = `MATCH (a:Application)
+    WHERE (a)-[:flow]->() OR ()-[:flow]->(a)
+    ORDER BY a.name
+    RETURN COLLECT(a.name) AS connectedApplicationNames`;
+    const result = await executeQuery(query, {});
+    if (result) {
+      return result[0].connectedApplicationNames;
+    }
+  } catch (err) {
+    console.error("Error retrieving the connected app labels ", err);
   }
 };
