@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, ArrowUpDown, Pencil, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { executeQuery } from "@/lib/neo4j";
 import { toast } from "sonner";
 import { ApplicationForm } from "./ApplicationForm";
@@ -114,7 +115,6 @@ export function TablesPage() {
     direction: "asc",
   });
   const [tableShown, setTableShown] = useState<string>("applications");
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
   const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
   const [applicationData, setApplicationData] = useState<any>({});
@@ -172,8 +172,6 @@ export function TablesPage() {
   }, []);
 
   useEffect(() => {
-    setSelectedRowId(null);
-
     if (tableShown == "applications") {
       setColumns(appColumns);
     } else {
@@ -257,15 +255,14 @@ export function TablesPage() {
     return result;
   }
 
-  const openDialog = (tableShown: string) => {
+  const openDialog = (tableShown: string, rowId: string) => {
+
     if (tableShown == "applications") {
-      setApplicationData(
-        cleanObj(applications.find((obj) => obj.id === selectedRowId))
-      );
+      setApplicationData(cleanObj(applications.find((obj) => obj.id === rowId)));
       setFlowData({});
       setIsApplicationDialogOpen(true);
     } else {
-      setFlowData(flows.find((obj) => obj.id === selectedRowId));
+      setFlowData(flows.find((obj) => obj.id === rowId));
       setApplicationData({});
       setIsFlowDialogOpen(true);
     }
@@ -474,14 +471,12 @@ export function TablesPage() {
             className="max-w-sm"
           />
           <div className="flex gap-2">
-            {/*Pulsante Edit (disabilitato se nessuna riga selezionata) */}
             <Button
               variant="outline"
               size="icon"
-              onClick={() => openDialog(tableShown)}
-              disabled={!selectedRowId}
+              onClick={() => handleExport(data, tableShown)}
             >
-              <Pencil className={`h-4 w-4`} />
+              <Download className="h-4 w-4" />
             </Button>
 
             <Button
@@ -513,7 +508,7 @@ export function TablesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm">
-                        Select
+                        Edit
                       </TableHead>
                       {columns.map((column: any) => (
                         <TableHead
@@ -537,12 +532,13 @@ export function TablesPage() {
                     {sortedData.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="text-center">
-                          <input
-                            type="radio"
-                            name="selectRow"
-                            checked={selectedRowId === item.id}
-                            onChange={() => setSelectedRowId(item.id)}
-                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDialog(tableShown, item.id)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                         {columns.map((column: any) => (
                           <TableCell

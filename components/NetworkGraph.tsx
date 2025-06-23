@@ -29,11 +29,13 @@ import {
   deleteFlow,
   editApplication,
   editFlow,
+  getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
+  getFlowLabels, 
+  getApplicationLabels
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
-import { getFlowLabels, getApplicationLabels } from "@/lib/neo4jUtils";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -73,7 +75,7 @@ const options = {
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: true,
+    enabled: false,
     barnesHut: {
       gravitationalConstant: -2000,
       centralGravity: 0.3,
@@ -225,7 +227,7 @@ export function NetworkGraph() {
   const [isLoading, setIsLoading] = useState(false);
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
   const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
-  const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(true);
+  const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(false);
   const physicsStateRef = useRef(isPhysicsEnabled);
   const [graphData, setGraphData] = useState<{
     nodes: any[];
@@ -710,7 +712,7 @@ export function NetworkGraph() {
   }, []);
 
   useEffect(() => {
-    getApplicationLabels().then((result) => {
+    getConnectedApplicationLabels().then((result) => {
       if (result && result.length > 0) {
         setAppLabels(result);
       } else {
@@ -865,6 +867,7 @@ export function NetworkGraph() {
           onQueryResults={handleQueryResults}
           query={query}
           setQuery={setQuery}
+          showHistory={true}
         />
       </div>
 
