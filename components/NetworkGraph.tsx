@@ -75,7 +75,7 @@ const options = {
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: true,
+    enabled: false,
     barnesHut: {
       gravitationalConstant: -2000,
       centralGravity: 0.3,
@@ -227,7 +227,7 @@ export function NetworkGraph() {
   const [isLoading, setIsLoading] = useState(false);
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
   const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
-  const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(true);
+  const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(false);
   const physicsStateRef = useRef(isPhysicsEnabled);
   const [graphData, setGraphData] = useState<{
     nodes: any[];
