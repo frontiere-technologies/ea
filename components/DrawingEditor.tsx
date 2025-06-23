@@ -238,6 +238,7 @@ export function DrawingEditor() {
         ...data,
         //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         release_date: data.release_date || null,
+        bend: Number(data.bend ?? 0),
       };
 
       //console.log("Data -> ", transformedData)
@@ -271,6 +272,14 @@ export function DrawingEditor() {
       if (result && result.length > 0) {
         toast.success("Flow added successfully");
         setIsFlowDialogOpen(false);
+        const editor = editorRef.current;
+        if (editor && selectedArrowId) {
+          editor.updateShape({
+            id: selectedArrowId,
+            type: "arrow",
+            props: { bend: Number(data.bend ?? 0) },
+          });
+        }
       } else {
         toast.error("Failed to save flow");
       }
@@ -346,7 +355,10 @@ function getRelationships(nodeA: string, nodeB: string) {
         y: boundsTo.y + boundsTo.h / 2,
       };
 
-      const bend = (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1);
+      const bend =
+        rel.r.properties.bend !== undefined
+          ? Number(rel.r.properties.bend)
+          : (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1);
 
       editor.createShape({
         id: `shape:${flowId}`,
@@ -539,6 +551,7 @@ function getRelationships(nodeA: string, nodeB: string) {
                   setFlowFormData({
                     initiator_application: startApp.meta?.data?.id,
                     target_application: endApp.meta?.data?.id,
+                    bend: shape.props.bend ?? 0,
                   });
 
                   setIsFlowDialogOpen(true);

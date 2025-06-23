@@ -11,7 +11,7 @@ import Select from 'react-select';
 interface FormFieldProps {
   name: string;
   label: string;
-  type: "text" | "select" | "switch" | "date" | "rich-text";
+  type: "text" | "select" | "switch" | "date" | "rich-text" | "number";
   placeholder?: string;
   description?: string;
   options?: { value: string; label: string }[];
@@ -134,6 +134,15 @@ export function FormField({
         <Switch
           checked={value}
           onCheckedChange={(checked) => handleChange(checked)}
+        />
+      )}
+
+      {type === "number" && (
+        <Input
+          {...register(name)}
+          id={name}
+          type="number"
+          className="w-full"
         />
       )}
 

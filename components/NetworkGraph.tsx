@@ -71,6 +71,7 @@ const options = {
     color: { color: "#848484", highlight: "#848484" },
     width: 2,
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+    smooth: { enabled: true, type: "dynamic", roundness: 0.3 },
   },
   physics: {
     enabled: true,
@@ -333,6 +334,7 @@ export function NetworkGraph() {
         ...data,
         //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         release_date: data.release_date || null,
+        bend: Number(data.bend ?? 0),
       };
 
       //console.log("Data -> ", transformedData)

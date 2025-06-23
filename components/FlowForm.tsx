@@ -31,6 +31,7 @@ export function FlowForm({ onSubmit, data }: FlowFormProps) {
       estimated_calls_per_day: "",
       average_execution_time_in_sec: "",
       average_message_size_in_kb: "",
+      bend: 0,
       api_gateway: false,
       release_date: "",
       notes: "",
@@ -326,6 +327,14 @@ export function FlowForm({ onSubmit, data }: FlowFormProps) {
                 label="Average message size in kb"
                 type="text"
                 placeholder="Average message size in kb"
+              />
+
+              <FormField
+                form={form}
+                name="bend"
+                label="Bend"
+                type="number"
+                placeholder="Curve amount"
               />
             </div>
           </div>
