@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ArrowUpDown, Pencil } from "lucide-react";
+import { RefreshCw, ArrowUpDown, Pencil, Download } from "lucide-react";
 import { executeQuery } from "@/lib/neo4j";
 import { toast } from "sonner";
 import { ApplicationForm } from "./ApplicationForm";
@@ -443,6 +443,23 @@ export function TablesPage() {
     setIsLoading(false);
   };
 
+  const handleExport = async (data: TableData[], fileName: string) => {
+    const XLSX = await import("xlsx");
+    const filtered = filterData(data);
+    const sorted = sortData(filtered);
+    const exportData = sorted.map((item) => {
+      const row: Record<string, any> = {};
+      columns.forEach((col: string) => {
+        row[col] = item[col];
+      });
+      return row;
+    });
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, fileName);
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  };
+
   const renderTable = (data: TableData[]) => {
     const filteredData = filterData(data);
     const sortedData = sortData(filteredData);
@@ -465,6 +482,14 @@ export function TablesPage() {
               disabled={!selectedRowId}
             >
               <Pencil className={`h-4 w-4`} />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleExport(data, tableShown)}
+            >
+              <Download className="h-4 w-4" />
             </Button>
 
             <Button
