@@ -370,10 +370,10 @@ export function NetworkGraph() {
           const newApp = transformData(result);
           const newAppKey = newNode.elementId;
 
-          setDataTransformed({
-            ...dataTransformed,
+          setDataTransformed((prev: any) => ({
+            ...prev,
             [newAppKey]: newApp[newNode.elementId],
-          });
+          }));
 
           toast.success("Application added successfully");
         } else {
@@ -390,7 +390,6 @@ export function NetworkGraph() {
       });
     }
 
-    handleQueryResults;
     setIsApplicationDialogOpen(false);
     setIsLoading(false);
   };
@@ -422,10 +421,10 @@ export function NetworkGraph() {
           const newApp = transformData(result);
           const newAppKey = newNode.elementId;
 
-          setDataTransformed({
-            ...dataTransformed,
+          setDataTransformed((prev: any) => ({
+            ...prev,
             [newAppKey]: newApp[newNode.elementId],
-          });
+          }));
 
           toast.success("Flow added successfully");
         } else {
@@ -442,7 +441,6 @@ export function NetworkGraph() {
       });
     }
 
-    handleQueryResults;
     setIsFlowDialogOpen(false);
     setIsLoading(false);
   };
