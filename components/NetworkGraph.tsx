@@ -263,19 +263,12 @@ export function NetworkGraph() {
     }
   };
 
-  const handleContainerContextMenu = (
-    event: React.MouseEvent<HTMLDivElement>
-  ) => {
-    event.preventDefault();
-    if (!networkRef.current || !containerRef.current) return;
+  const handleNetworkContextMenu = (params: any) => {
+    params.event.preventDefault();
+    if (!networkRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const pointer = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
-    const nodeId = networkRef.current.getNodeAt(pointer);
-    const edgeId = networkRef.current.getEdgeAt(pointer);
+    const nodeId = params.nodes[0];
+    const edgeId = params.edges[0];
 
     if (!nodeId && !edgeId) {
       setContextMenuOpen(false);
@@ -302,7 +295,8 @@ export function NetworkGraph() {
       setContextTarget({ type: "edge", id: edgeId });
     }
 
-    setContextMenuPos({ x: event.clientX, y: event.clientY });
+    const { x, y } = params.pointer.DOM;
+    setContextMenuPos({ x, y });
     setContextMenuOpen(true);
   };
 
@@ -709,6 +703,7 @@ export function NetworkGraph() {
       });
 
 
+      networkRef.current.on("oncontext", handleNetworkContextMenu);
 
       networkRef.current.once("afterDrawing", () => {
         networkRef.current?.fit();
@@ -896,7 +891,6 @@ export function NetworkGraph() {
           <div
             ref={containerRef}
             className="flex-1 min-h-0"
-            onContextMenu={handleContainerContextMenu}
           >
             {isLoading && (
               <div className="flex items-center justify-center h-full">
