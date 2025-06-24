@@ -40,6 +40,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 
 interface NetworkWithBody extends Network {
@@ -266,9 +267,13 @@ export function NetworkGraph() {
     event: React.MouseEvent<HTMLDivElement>
   ) => {
     event.preventDefault();
-    if (!networkRef.current) return;
+    if (!networkRef.current || !containerRef.current) return;
 
-    const pointer = { x: event.clientX, y: event.clientY };
+    const rect = containerRef.current.getBoundingClientRect();
+    const pointer = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
     const nodeId = networkRef.current.getNodeAt(pointer);
     const edgeId = networkRef.current.getEdgeAt(pointer);
 
@@ -887,17 +892,19 @@ export function NetworkGraph() {
       </div>
 
       <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
-        <div
-          ref={containerRef}
-          className="flex-1 min-h-0"
-          onContextMenu={handleContainerContextMenu}
-        >
-          {isLoading && (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          )}
-        </div>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={containerRef}
+            className="flex-1 min-h-0"
+            onContextMenu={handleContainerContextMenu}
+          >
+            {isLoading && (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+          </div>
+        </ContextMenuTrigger>
         <ContextMenuContent
           style={{ position: "fixed", top: contextMenuPos.y, left: contextMenuPos.x }}
         >
