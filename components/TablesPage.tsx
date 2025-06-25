@@ -87,6 +87,8 @@ const appColumns = [
 
 const flowColumns = [
   "flow_id",
+  "initiator",
+  "target",
   "name",
   "description",
   "communication_mode",
@@ -149,6 +151,8 @@ export function TablesPage() {
           result.map((record: any) => ({
             id: record.r.elementId,
             type: "flow",
+            initiator: record.initiator,
+            target: record.target,
             ...record.r.properties,
           }))
         );
