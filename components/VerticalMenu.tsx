@@ -2,6 +2,7 @@
 
 import { Table2, PenLine, Network, HelpCircle, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface VerticalMenuProps {
   activeView: string;
@@ -39,7 +40,9 @@ export function VerticalMenu({ activeView, onViewChange }: VerticalMenuProps) {
           </button>
         ))}
       </div>
+      
       <div className="mt-auto space-y-4">
+        <ThemeToggle />
         {bottomMenuItems.map((item) => (
           <button
             key={item.id}
