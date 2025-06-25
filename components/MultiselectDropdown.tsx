@@ -1,11 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +19,18 @@ export function MultiselectDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isOpen]);
 
   const toggleOption = (option: string) => {
     const updated = selectedOptions.includes(option)
@@ -43,19 +50,25 @@ export function MultiselectDropdown({
   );
 
   return (
-    <div className="border border-border rounded-md shadow-sm bg-card w-[220px] relative">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium cursor-pointer select-none text-card-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-          <span className="truncate">{placeholder}</span>
-          <ChevronDown
-            className={cn(
-              "w-5 h-5 text-muted-foreground transition-transform duration-300",
-              isOpen ? "rotate-180" : "rotate-0"
-            )}
-          />
-        </CollapsibleTrigger>
+    <div ref={containerRef} className="relative w-[220px]">
+      <button
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium border border-border rounded-md bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+      >
+        <span className="truncate">
+          {selectedOptions.length > 0 ? selectedOptions.join(', ') : placeholder}
+        </span>
+        <ChevronDown
+          className={cn(
+            "w-5 h-5 text-muted-foreground transition-transform duration-300",
+            isOpen ? "rotate-180" : "rotate-0"
+          )}
+        />
+      </button>
 
-        <CollapsibleContent
+      {isOpen && (
+        <div
           className="absolute left-0 top-full mt-1 bg-card border border-border rounded-md shadow-md w-full z-50"
           onClick={(e) => e.stopPropagation()}
         >
@@ -107,8 +120,9 @@ export function MultiselectDropdown({
               Clear all
             </Button>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      )}
     </div>
   );
 }
+
