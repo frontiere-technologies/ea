@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MultiselectDropdownProps {
   options: string[];
@@ -42,19 +43,20 @@ export function MultiselectDropdown({
   );
 
   return (
-    <div className="border rounded-md shadow-sm bg-white w-[220px] relative">
+    <div className="border border-border rounded-md shadow-sm bg-card w-[220px] relative">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium cursor-pointer select-none">
+        <CollapsibleTrigger className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium cursor-pointer select-none text-card-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
           <span className="truncate">{placeholder}</span>
           <ChevronDown
-            className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${
+            className={cn(
+              "w-5 h-5 text-muted-foreground transition-transform duration-300",
               isOpen ? "rotate-180" : "rotate-0"
-            }`}
+            )}
           />
         </CollapsibleTrigger>
 
         <CollapsibleContent
-          className="absolute left-0 top-full mt-1 bg-white border border-gray-300 rounded-md shadow-md w-full z-50"
+          className="absolute left-0 top-full mt-1 bg-card border border-border rounded-md shadow-md w-full z-50"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-4 pt-3 pb-2">
@@ -63,13 +65,13 @@ export function MultiselectDropdown({
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-sm transition-colors"
             />
           </div>
 
           <div className="px-4 max-h-[160px] overflow-y-auto space-y-1">
             {filteredOptions.length === 0 ? (
-              <div className="text-gray-500 text-center text-sm py-2">
+              <div className="text-muted-foreground text-center text-sm py-2">
                 No options found
               </div>
             ) : (
@@ -79,14 +81,15 @@ export function MultiselectDropdown({
                   <div
                     key={option}
                     onClick={() => toggleOption(option)}
-                    className={`flex justify-between items-center px-3 py-2 rounded cursor-pointer text-sm select-none ${
+                    className={cn(
+                      "flex justify-between items-center px-3 py-2 rounded cursor-pointer text-sm select-none transition-colors",
                       isSelected
-                        ? "bg-gray-200 text-gray-900 font-medium"
-                        : "hover:bg-gray-100 text-gray-800"
-                    }`}
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "hover:bg-accent hover:text-accent-foreground text-card-foreground"
+                    )}
                   >
                     <span>{option}</span>
-                    {isSelected && <Check className="w-4 h-4 text-gray-900" />}
+                    {isSelected && <Check className="w-4 h-4" />}
                   </div>
                 );
               })
@@ -99,7 +102,7 @@ export function MultiselectDropdown({
               disabled={selectedOptions.length === 0}
               variant="ghost"
               size="sm"
-              className="text-xs text-gray-900 disabled:text-gray-400 p-0 h-auto hover:bg-transparent hover:text-gray-900"
+              className="text-xs p-0 h-auto hover:bg-transparent disabled:opacity-50"
             >
               Clear all
             </Button>

@@ -798,7 +798,7 @@ export function NetworkGraph() {
 
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
-      <div className="p-2 border-b flex items-center justify-between">
+      <div className="p-2 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between">
         {/* Gruppo pulsanti */}
         <div className="flex gap-2">
           <TooltipProvider>
@@ -849,7 +849,7 @@ export function NetworkGraph() {
           </TooltipProvider>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <MultiselectDropdown
             options={appLabels || []}
             onChange={setSelectedInitiators}
@@ -857,9 +857,11 @@ export function NetworkGraph() {
           />
           <Button
             variant="outline"
+            size="sm"
             onClick={() =>
               setInitiatorTargetOperator((op) => (op === "AND" ? "OR" : "AND"))
             }
+            className="min-w-[50px]"
           >
             {initiatorTargetOperator}
           </Button>
