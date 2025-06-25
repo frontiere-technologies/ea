@@ -32,10 +32,15 @@ import {
   getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
-  getFlowLabels, 
+  getFlowLabels,
   getApplicationLabels
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@/components/ui/context-menu";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -242,8 +247,57 @@ export function NetworkGraph() {
     data: {},
     type: "",
   });
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const [contextTarget, setContextTarget] = useState<{ type: "node" | "edge" | null; id?: string }>({ type: null });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
+
+  const handleContextEdit = () => {
+    setContextMenuOpen(false);
+    if (contextTarget.type === "node") {
+      setIsApplicationDialogOpen(true);
+    } else if (contextTarget.type === "edge") {
+      setIsFlowDialogOpen(true);
+    }
+  };
+
+  const handleNetworkContextMenu = (params: any) => {
+    params.event.preventDefault();
+    if (!networkRef.current) return;
+
+    const nodeId = params.nodes[0];
+    const edgeId = params.edges[0];
+
+    if (!nodeId && !edgeId) {
+      setContextMenuOpen(false);
+      return;
+    }
+
+    if (nodeId) {
+      networkRef.current.selectNodes([nodeId]);
+      const nodeData = dataTransformedRef.current[nodeId];
+      nodeData["elementId"] = nodeId;
+      nodeData["type"] = "application";
+      const appData = {
+        nodeData,
+        hasRelationship:
+          networkRef.current.getConnectedEdges(nodeId).length > 0,
+      };
+      setApplicationData(appData);
+      setContextTarget({ type: "node", id: nodeId });
+    } else if (edgeId) {
+      networkRef.current.selectEdges([edgeId]);
+      const edgeData = dataTransformedRef.current[edgeId];
+      edgeData["elementId"] = edgeId;
+      setFlowData(edgeData);
+      setContextTarget({ type: "edge", id: edgeId });
+    }
+
+    const { x, y } = params.pointer.DOM;
+    setContextMenuPos({ x, y });
+    setContextMenuOpen(true);
+  };
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
@@ -647,31 +701,8 @@ export function NetworkGraph() {
         }
       });
 
-      //Visualizzare la modale di modifica
-      networkRef.current.on("oncontext", (params) => {
-        params.event.preventDefault();
-        if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0];
-          const nodeData = dataTransformedRef.current[nodeId];
-          nodeData["elementId"] = nodeId;
-          nodeData["type"] = "application";
-          const appData = {
-            nodeData,
-            hasRelationship: params.edges.length > 0 ? true : false,
-          };
-          setApplicationData(appData);
-          setIsApplicationDialogOpen(true);
-        }
 
-        if (params.edges.length > 0 && params.nodes.length === 0) {
-          const edgeId = params.edges[0];
-          const edgeData = dataTransformedRef.current[edgeId];
-          edgeData["elementId"] = edgeId;
-          setFlowData(edgeData);
-          //console.log('Clicked edge data:', edgeData);
-          setIsFlowDialogOpen(true);
-        }
-      });
+      networkRef.current.on("oncontext", handleNetworkContextMenu);
 
       networkRef.current.once("afterDrawing", () => {
         networkRef.current?.fit();
@@ -854,13 +885,20 @@ export function NetworkGraph() {
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 min-h-0">
-        {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        )}
-      </div>
+      <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+        <div ref={containerRef} className="flex-1 min-h-0">
+          {isLoading && (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
+        </div>
+        <ContextMenuContent
+          style={{ position: "fixed", top: contextMenuPos.y, left: contextMenuPos.x }}
+        >
+          <ContextMenuItem onSelect={handleContextEdit}>Edit</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <div className="mt-4 px-4 pb-4">
         <QueryInput
