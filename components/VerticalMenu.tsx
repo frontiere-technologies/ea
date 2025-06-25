@@ -1,6 +1,7 @@
 "use client";
 
 import { Table2, PenLine, Network, HelpCircle, UserCircle } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
 interface VerticalMenuProps {
@@ -55,6 +56,7 @@ export function VerticalMenu({ activeView, onViewChange }: VerticalMenuProps) {
             <item.icon className="w-4 h-4" />
           </button>
         ))}
+        <ThemeToggle />
       </div>
     </nav>
   );
