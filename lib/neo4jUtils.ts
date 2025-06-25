@@ -145,7 +145,7 @@ export const deleteApplication = async (data: any) => {
 export const getFlows = async () => {
   try {
     const results = await executeQuery(
-      "MATCH ()-[r:flow]->() RETURN r",
+      "MATCH (i:Application)-[r:flow]->(t:Application) RETURN r, i.name AS initiator, t.name AS target",
       {},
       new AbortController().signal
     );
