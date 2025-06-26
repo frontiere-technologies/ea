@@ -494,7 +494,6 @@ export function TablesPage() {
         </div>
 
         <div className="flex-1 min-h-0 border rounded-md overflow-auto">
-          <div className="inline-block min-w-full align-middle">
             <Table className="min-w-full">
                   <TableHeader>
                     <TableRow>
@@ -543,8 +542,6 @@ export function TablesPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-            </div>
 
         <div className="text-sm text-muted-foreground">
           Showing {filteredData.length} entries
