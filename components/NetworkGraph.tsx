@@ -79,7 +79,7 @@ const options = {
     barnesHut: {
       gravitationalConstant: -800,
       centralGravity: 0.05,
-      springLength: 150,
+      springLength: 300,
       springConstant: 0.02,
     },
     stabilization: {
@@ -231,9 +231,22 @@ export function NetworkGraph() {
   const physicsStateRef = useRef(isPhysicsEnabled);
 
   const schedulePhysicsStop = useCallback(() => {
-    setTimeout(() => {
+    const accelerate = setTimeout(() => {
+      networkRef.current?.setOptions({
+        physics: {
+          stabilization: { iterations: 100, updateInterval: 5 },
+        },
+      });
+      networkRef.current?.stabilize();
+    }, 4500);
+    const stop = setTimeout(() => {
       networkRef.current?.stopSimulation();
+      clearTimeout(accelerate);
     }, 5000);
+    return () => {
+      clearTimeout(accelerate);
+      clearTimeout(stop);
+    };
   }, []);
   const [graphData, setGraphData] = useState<{
     nodes: any[];
