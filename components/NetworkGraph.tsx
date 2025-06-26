@@ -84,8 +84,8 @@ const options = {
     },
     stabilization: {
       enabled: true,
-      iterations: 1000,
-      updateInterval: 50,
+      iterations: 200,
+      updateInterval: 25,
       onlyDynamicEdges: false,
       fit: true,
     },
@@ -229,6 +229,12 @@ export function NetworkGraph() {
   const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
   const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(false);
   const physicsStateRef = useRef(isPhysicsEnabled);
+
+  const schedulePhysicsStop = useCallback(() => {
+    setTimeout(() => {
+      networkRef.current?.stopSimulation();
+    }, 5000);
+  }, []);
   const [graphData, setGraphData] = useState<{
     nodes: any[];
     edges: any[];
@@ -492,6 +498,9 @@ export function NetworkGraph() {
           enabled: newPhysicsState,
         },
       });
+      if (newPhysicsState) {
+        schedulePhysicsStop();
+      }
     }
   }, [isPhysicsEnabled]);
 
@@ -598,6 +607,9 @@ export function NetworkGraph() {
                 },
               },
             });
+            if (isPhysicsEnabled) {
+              schedulePhysicsStop();
+            }
           }
         }, 500);
       }
@@ -637,6 +649,9 @@ export function NetworkGraph() {
         networkRef.current?.setOptions({
           physics: { enabled: physicsStateRef.current },
         });
+        if (physicsStateRef.current) {
+          schedulePhysicsStop();
+        }
         if (!physicsStateRef.current) {
           networkRef.current?.redraw();
         }
