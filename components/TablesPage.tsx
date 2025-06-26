@@ -545,7 +545,6 @@ export function TablesPage() {
                 </Table>
               </div>
             </div>
-          </div>
 
         <div className="text-sm text-muted-foreground">
           Showing {filteredData.length} entries
