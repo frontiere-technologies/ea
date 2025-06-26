@@ -1,0 +1,989 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import cytoscape, { Core } from "cytoscape";
+import { executeQuery } from "@/lib/neo4j";
+import { AppWindow, Link as Line, Magnet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ApplicationForm } from "./ApplicationForm";
+import { FlowForm } from "./FlowForm";
+import { ConfirmModal } from "./ConfirmModal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+import { QueryInput } from "@/components/QueryInput";
+import {
+  deleteApplication,
+  deleteFlow,
+  editApplication,
+  editFlow,
+  getConnectedApplicationLabels,
+  saveApplication,
+  saveFlow,
+  getFlowLabels, 
+  getApplicationLabels
+} from "@/lib/neo4jUtils";
+import { MultiselectDropdown } from "./MultiselectDropdown";
+
+type SortConfig = {
+  key: string;
+  direction: "asc" | "desc";
+};
+
+type TableData = {
+  id: string;
+  [key: string]: any;
+};
+
+
+function transformData(data: any) {
+  const result: any = {};
+
+  data.forEach((row: any) => {
+    for (const key in row) {
+      const item = row[key];
+      const {
+        elementId,
+        properties,
+        labels,
+        type,
+        startNodeElementId,
+        endNodeElementId,
+      } = item;
+
+      if (!elementId) continue;
+
+      const cleanedProperties = Object.fromEntries(
+        Object.entries(properties).map(([k, v]) => {
+          if (typeof v === "string") {
+            try {
+              const parsed = JSON.parse(v);
+
+              if (Array.isArray(parsed)) {
+                // Se array vuoto
+                if (
+                  parsed.length === 0 ||
+                  (parsed.length === 1 && parsed[0] === "[]")
+                ) {
+                  return [k, ""];
+                }
+                // Se array con valori
+                return [k, parsed.join(", ")];
+              }
+            } catch (e) {
+              // Non è un JSON parsabile, continua
+            }
+          }
+
+          if (Array.isArray(v) && v.length === 0) {
+            return [k, ""];
+          }
+
+          return [k, v];
+        })
+      );
+
+      result[elementId] = {
+        ...(labels ? { labels: labels[0] } : {}),
+        ...(type ? { type } : {}),
+        ...(startNodeElementId
+          ? { initiator_application: startNodeElementId }
+          : {}),
+        ...(endNodeElementId ? { target_application: endNodeElementId } : {}),
+        ...cleanedProperties,
+      };
+    }
+  });
+
+  return result;
+}
+
+function createNodeTooltip(properties: Record<string, any>): string {
+  const excludedFields = ["elementId", "labels"];
+  const fields = Object.entries(properties)
+    .filter(
+      ([key]) =>
+        !excludedFields.includes(key) &&
+        properties[key] !== null &&
+        properties[key] !== ""
+    )
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return `<strong>${formatKey(key)}</strong>: ${value.join(", ")}`;
+      }
+      return `<strong>${formatKey(key)}</strong>: ${value}`;
+    });
+
+  return `<div style="max-width: 300px; padding: 8px;">
+    ${fields.join("<br>")}
+  </div>`;
+}
+
+function createEdgeTooltip(properties: Record<string, any>): string {
+  if (!properties || Object.keys(properties).length === 0) {
+    return "";
+  }
+
+  const fields = Object.entries(properties)
+    .filter(([_, value]) => value !== null && value !== "")
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return `<strong>${formatKey(key)}</strong>: ${value.join(", ")}`;
+      }
+      return `<strong>${formatKey(key)}</strong>: ${value}`;
+    });
+
+  return `<div style="max-width: 300px; padding: 8px;">
+    ${fields.join("<br>")}
+  </div>`;
+}
+
+function formatKey(key: string): string {
+  return key
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function NetworkGraphCytoscape() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const networkRef = useRef<Core | null>(null);
+  const currentDataRef = useRef<{
+    nodes: Map<string, any>;
+    edges: Map<string, any>;
+  }>({
+    nodes: new Map(),
+    edges: new Map(),
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
+  const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
+  const [isPhysicsEnabled, setIsPhysicsEnabled] = useState(false);
+  const physicsStateRef = useRef(isPhysicsEnabled);
+  const [graphData, setGraphData] = useState<{
+    nodes: any[];
+    edges: any[];
+  } | null>({ nodes: [], edges: [] });
+  const [dataTransformed, setDataTransformed] = useState<any>([]);
+  const dataTransformedRef = useRef(dataTransformed);
+  const [applicationData, setApplicationData] = useState<any>({});
+  const [flowData, setFlowData] = useState<any>({});
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
+    show: false,
+    data: {},
+    type: "",
+  });
+  const [appLabels, setAppLabels] = useState([]);
+  const [flowLabels, setFlowLabels] = useState([]);
+
+  const handleQueryResults = useCallback((results: any[]) => {
+    const nodes = new Map();
+    const edges: any = [];
+
+    //console.log("RESULTS ",results)
+    setDataTransformed(transformData(results));
+
+    results.forEach((record) => {
+      const nodeA = record.a;
+      const nodeB = record.b;
+      const relationship = record.e;
+
+      if (nodeA && !nodes.has(nodeA.elementId)) {
+        const label =
+          nodeA.properties.name || nodeA.properties.nickname || "Unnamed";
+        nodes.set(nodeA.elementId, {
+          id: nodeA.elementId,
+          label: label,
+          title: createNodeTooltip(nodeA.properties),
+          group: nodeA.labels[0].toLowerCase(),
+        });
+      }
+
+      if (nodeB && !nodes.has(nodeB.elementId)) {
+        const label =
+          nodeB.properties.name || nodeB.properties.nickname || "Unnamed";
+        nodes.set(nodeB.elementId, {
+          id: nodeB.elementId,
+          label: label,
+          title: createNodeTooltip(nodeB.properties),
+          group: nodeB.labels[0].toLowerCase(),
+        });
+      }
+
+      if (
+        relationship &&
+        relationship.startNodeElementId &&
+        relationship.endNodeElementId
+      ) {
+        edges.push({
+          id: relationship.elementId,
+          from: relationship.startNodeElementId,
+          to: relationship.endNodeElementId,
+          label: relationship.properties?.name || relationship.type,
+          arrows: "to",
+          title: createEdgeTooltip(relationship.properties),
+        });
+      }
+    });
+
+    setGraphData({
+      nodes: Array.from(nodes.values()),
+      edges: edges,
+    });
+  }, []);
+
+  const handleApplicationSubmit = async (data: any) => {
+    try {
+      const transformedData = {
+        ...data,
+        /*internal_application_specialists: data.internal_application_specialists ? JSON.stringify(data.internal_application_specialists.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        business_partner_business_contacts: data.business_partner_business_contacts ? JSON.stringify(data.business_partner_business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        business_contacts: data.business_contacts ? JSON.stringify(data.business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        internal_developers: data.internal_developers ? JSON.stringify(data.internal_developers.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        ams_contacts_email: data.ams_contacts_email ? JSON.stringify(data.ams_contacts_email.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        ams_contact_phone: data.ams_contact_phone ? JSON.stringify(data.ams_contact_phone.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        smes_factory: data.smes_factory ? JSON.stringify(data.smes_factory.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",*/
+        ams_contact_phone: data.ams_contact_phone || "",
+        ams_expire_date: data.ams_expire_date || null,
+        ams_supplier: data.ams_supplier || "",
+        ams_portal: data.ams_portal || "",
+        links_to_documentation: data.links_to_documentation || "",
+        ams_type: data.ams_type || "",
+        decommission_date: data.decommission_date || null,
+      };
+
+      await handleSaveApplication(transformedData);
+    } catch (error) {
+      console.error("Error transforming data:", error);
+      toast.error("Invalid format in one or more fields");
+    }
+  };
+
+  const handleFlowSubmit = async (data: any) => {
+    try {
+      const transformedData = {
+        ...data,
+        //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        release_date: data.release_date || null,
+      };
+
+      //console.log("Data -> ", transformedData)
+      await handleSaveFlow(transformedData);
+    } catch (error) {
+      console.error("Error transforming data:", error);
+      toast.error("Invalid format in one or more fields");
+    }
+  };
+
+  const handleSaveApplication = async (data: any) => {
+    if (!data) return;
+    setIsLoading(true);
+
+    if (Object.keys(applicationData).length === 0) {
+      saveApplication(data).then((result) => {
+        if (result && result.length > 0) {
+          const newNode = result[0].a;
+
+          if (networkRef.current) {
+            const nodeData = {
+              id: newNode.elementId,
+              label: newNode.properties.name,
+              title: createNodeTooltip(newNode.properties),
+              group: "application",
+            };
+
+            const cy = networkRef.current!;
+            cy.add({ group: "nodes", data: nodeData });
+            currentDataRef.current.nodes.set(newNode.elementId, nodeData);
+          }
+
+          const newApp = transformData(result);
+          const newAppKey = newNode.elementId;
+
+          setDataTransformed((prev: any) => ({
+            ...prev,
+            [newAppKey]: newApp[newNode.elementId],
+          }));
+
+          toast.success("Application added successfully");
+        } else {
+          toast.error("Failed to save application");
+        }
+      });
+    } else {
+      editApplication(data).then((result) => {
+        if (result && result.length > 0) {
+          toast.success("Application edited successfully");
+        } else {
+          toast.error("Failed to edit application");
+        }
+      });
+    }
+
+    setIsApplicationDialogOpen(false);
+    setIsLoading(false);
+  };
+
+  const handleSaveFlow = async (data: any) => {
+    if (!data) return;
+    setIsLoading(true);
+
+    if (Object.keys(flowData).length === 0) {
+      saveFlow(data).then((result) => {
+        if (result && result.length > 0) {
+          const newNode = result[0].f;
+
+          if (networkRef.current) {
+            const edgeData = {
+              id: newNode.elementId,
+              from: newNode.startNodeElementId,
+              to: newNode.endNodeElementId,
+              label: newNode.properties.name || newNode.type,
+              arrows: "to",
+              title: createEdgeTooltip(newNode.properties),
+            };
+
+            const cy = networkRef.current!;
+            cy.add({ group: "edges", data: { id: edgeData.id, source: edgeData.from, target: edgeData.to, label: edgeData.label } });
+            currentDataRef.current.edges.set(newNode.elementId, edgeData);
+          }
+
+          const newApp = transformData(result);
+          const newAppKey = newNode.elementId;
+
+          setDataTransformed((prev: any) => ({
+            ...prev,
+            [newAppKey]: newApp[newNode.elementId],
+          }));
+
+          toast.success("Flow added successfully");
+        } else {
+          toast.error("Failed to save flow");
+        }
+      });
+    } else {
+      editFlow(data).then((result) => {
+        if (result && result.length > 0) {
+          toast.success("Flow edited successfully");
+        } else {
+          toast.error("Failed to edit flow");
+        }
+      });
+    }
+
+    setIsFlowDialogOpen(false);
+    setIsLoading(false);
+  };
+
+  const handleDeleteButton = async (data: any) => {
+    if (!data) return;
+
+    const { elementId, type } = data;
+    const cy = networkRef.current!;
+
+    setIsLoading(true);
+
+    if (type == "flow") {
+      deleteFlow(data).then((result) => {
+        if (result) {
+          toast.success("Flow deleted successfully");
+          if (networkRef.current) {
+            cy.getElementById(elementId).remove();
+          }
+        } else {
+          toast.error("Error deleting the flow");
+        }
+      });
+    } else if (type == "application") {
+      deleteApplication(data).then((result) => {
+        if (result) {
+          toast.success("Application deleted successfully");
+          if (networkRef.current) {
+            cy.getElementById(elementId).remove();
+          }
+        } else {
+          toast.error("Error deleting the application");
+        }
+      });
+    }
+
+    setIsConfirmModalOpen({ show: false, data: {}, type: "" });
+    setIsLoading(false);
+  };
+
+  const togglePhysics = useCallback(() => {
+    if (networkRef.current) {
+      const newPhysicsState = !isPhysicsEnabled;
+      setIsPhysicsEnabled(newPhysicsState);
+      physicsStateRef.current = newPhysicsState;
+
+      const layout = newPhysicsState ? "cose" : "preset";
+      networkRef.current.layout({ name: layout }).run();
+    }
+  }, [isPhysicsEnabled]);
+
+  const expandNode = async (nodeId: string) => {
+    if (!networkRef.current) return;
+    const cy = networkRef.current!;
+
+    setIsLoading(true);
+    try {
+      cy.layout({ name: "preset" }).run();
+
+      const sourceNodePosition = cy.getElementById(nodeId).position();
+
+      const results = await executeQuery(
+        `
+        MATCH (source)-[r]-(target)
+        WHERE elementId(source) = $nodeId
+        AND (target:Application OR target:Flow)
+        RETURN source as a, r as e, target as b
+        UNION
+        MATCH (source)-[r]-(target)
+        WHERE elementId(target) = $nodeId
+        AND (source:Application OR source:Flow)
+        RETURN source as a, r as e, target as b
+        `,
+        { nodeId },
+        new AbortController().signal
+      );
+
+      const newNodes: any = [];
+      const newEdges: any = [];
+
+      const radius = 200;
+      const angleStep = (2 * Math.PI) / results.length;
+
+      const newData = transformData(results);
+
+      setDataTransformed((prev: any) => ({
+        ...prev,
+        ...newData,
+      }));
+
+      results.forEach((record: any, index: any) => {
+        const nodeA = record.a;
+        const nodeB = record.b;
+        const relationship = record.e;
+
+        [nodeA, nodeB].forEach((node) => {
+          if (node && !currentDataRef.current.nodes.has(node.elementId)) {
+            const angle = angleStep * index;
+            const x = sourceNodePosition.x + radius * Math.cos(angle);
+            const y = sourceNodePosition.y + radius * Math.sin(angle);
+
+            const nodeData = {
+              id: node.elementId,
+              label:
+                node.properties.name || node.properties.nickname || "Unnamed",
+              title: createNodeTooltip(node.properties),
+              group: node.labels[0].toLowerCase(),
+              x: x,
+              y: y,
+            };
+            currentDataRef.current.nodes.set(node.elementId, nodeData);
+            newNodes.push(nodeData);
+          }
+        });
+
+        if (
+          relationship &&
+          !currentDataRef.current.edges.has(relationship.elementId)
+        ) {
+          const edgeData = {
+            id: relationship.elementId,
+            from: relationship.startNodeElementId,
+            to: relationship.endNodeElementId,
+            label: relationship.properties.name || relationship.type,
+            arrows: "to",
+            title: createEdgeTooltip(relationship.properties),
+          };
+          currentDataRef.current.edges.set(relationship.elementId, edgeData);
+          newEdges.push(edgeData);
+        }
+      });
+
+      if (newNodes.length > 0) {
+        cy.add(newNodes.map(n => ({ group: "nodes", data: n, position: { x: n.x, y: n.y } })));
+      }
+      if (newEdges.length > 0) {
+        cy.add(newEdges.map(e => ({ group: "edges", data: { id: e.id, source: e.from, target: e.to, label: e.label } })));
+      }
+
+      if (newNodes.length > 0 || newEdges.length > 0) {
+        setTimeout(() => {
+          networkRef.current?.layout({
+            name: isPhysicsEnabled ? "cose" : "preset",
+          }).run();
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Error expanding node:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const initializeNetwork = useCallback(() => {
+    if (!containerRef.current || !graphData) return;
+
+    try {
+      if (networkRef.current) {
+        networkRef.current.destroy();
+      }
+
+      currentDataRef.current.nodes = new Map(
+        graphData.nodes.map((node) => [node.id, node])
+      );
+      currentDataRef.current.edges = new Map(
+        graphData.edges.map((edge) => [edge.id, edge])
+      );
+
+      const elements = [
+        ...graphData.nodes.map((n: any) => ({
+          group: "nodes",
+          data: n,
+          position: { x: n.x || 0, y: n.y || 0 },
+        })),
+        ...graphData.edges.map((e: any) => ({
+          group: "edges",
+          data: {
+            id: e.id,
+            source: e.from,
+            target: e.to,
+            label: e.label,
+          },
+        })),
+      ];
+
+      networkRef.current = cytoscape({
+        container: containerRef.current,
+        elements,
+        style: [
+          {
+            selector: "node",
+            style: {
+              label: "data(label)",
+              "text-valign": "center",
+              "text-halign": "center",
+              "background-color": "#74b9ff",
+              shape: "round-rectangle",
+            },
+          },
+          {
+            selector: "node[group='flow']",
+            style: {
+              "background-color": "#ffeaa7",
+              shape: "triangle",
+            },
+          },
+          {
+            selector: "edge",
+            style: {
+              label: "data(label)",
+              "curve-style": "bezier",
+              "target-arrow-shape": "triangle",
+              "target-arrow-color": "#848484",
+              "line-color": "#848484",
+              width: 2,
+            },
+          },
+        ],
+        layout: { name: isPhysicsEnabled ? "cose" : "preset" },
+      });
+
+      const cy = networkRef.current;
+
+      cy.on("dbltap", "node", (evt) => expandNode(evt.target.id()));
+
+      cy.on("cxttap", "node", (evt) => {
+        const nodeId = evt.target.id();
+        const nodeData = dataTransformedRef.current[nodeId];
+        nodeData["elementId"] = nodeId;
+        nodeData["type"] = "application";
+        const appData = {
+          nodeData,
+          hasRelationship:
+            cy.edges(`[source = "${nodeId}"]`).length > 0 ||
+            cy.edges(`[target = "${nodeId}"]`).length > 0,
+        };
+        setApplicationData(appData);
+        setIsApplicationDialogOpen(true);
+      });
+
+      cy.on("cxttap", "edge", (evt) => {
+        const edgeId = evt.target.id();
+        const edgeData = dataTransformedRef.current[edgeId];
+        edgeData["elementId"] = edgeId;
+        setFlowData(edgeData);
+        setIsFlowDialogOpen(true);
+      });
+    } catch (error) {
+      console.error("Error initializing network:", error);
+    }
+  }, [graphData, isPhysicsEnabled]);
+
+  useEffect(() => {
+    if (!isApplicationDialogOpen) {
+      setApplicationData({});
+    }
+  }, [isApplicationDialogOpen]);
+
+  useEffect(() => {
+    if (!isFlowDialogOpen) {
+      setFlowData({});
+    }
+  }, [isFlowDialogOpen]);
+
+  useEffect(() => {
+    const setup = async () => {
+      setIsLoading(true);
+      await initializeNetwork();
+      setIsLoading(false);
+    };
+    setup();
+  }, [initializeNetwork]);
+
+  useEffect(() => {
+    return () => {
+      if (networkRef.current) {
+        networkRef.current.destroy();
+        networkRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    getConnectedApplicationLabels().then((result) => {
+      if (result && result.length > 0) {
+        setAppLabels(result);
+      } else {
+        toast.error("Failed to load applications labels");
+      }
+    });
+
+    getFlowLabels().then((result) => {
+      if (result && result.length > 0) {
+        setFlowLabels(result);
+      } else {
+        toast.error("Failed to load flow labels");
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    dataTransformedRef.current = dataTransformed;
+  }, [dataTransformed]);
+
+
+  /* Gestione Dropdown */
+
+  const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
+  const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [initiatorTargetOperator, setInitiatorTargetOperator] =
+    useState<"AND" | "OR">("AND");
+
+  function updateQueryWithFilters(
+  baseQuery: string,
+  initiators: string[],
+  targets: string[],
+  labels: string[],
+  operator: "AND" | "OR"
+): string {
+  const filters: string[] = [];
+
+  const initiatorParts =
+    initiators.length > 0
+      ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
+      : "";
+  const targetParts =
+    targets.length > 0
+      ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
+      : "";
+
+  if (initiatorParts && targetParts) {
+    filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
+  } else if (initiatorParts) {
+    filters.push(`(${initiatorParts})`);
+  } else if (targetParts) {
+    filters.push(`(${targetParts})`);
+  }
+
+  if (labels.length > 0) {
+    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
+    filters.push(`(${labelFilter})`);
+  }
+
+  // Regex per estrarre le parti principali della query
+  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
+  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
+
+  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
+}
+
+
+  useEffect(() => {
+    setQuery(q =>
+      updateQueryWithFilters(
+        q,
+        selectedInitiators,
+        selectedTargets,
+        selectedLabels,
+        initiatorTargetOperator
+      )
+    );
+  }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
+
+  /** */
+
+  return (
+    <div className="w-full h-full border rounded-lg bg-card flex flex-col">
+      <div className="p-2 border-b flex items-center justify-between">
+        {/* Gruppo pulsanti */}
+        <div className="flex gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsApplicationDialogOpen(true)}
+                >
+                  <AppWindow className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add application</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsFlowDialogOpen(true)}
+                >
+                  <Line className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add flow</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isPhysicsEnabled ? "default" : "outline"}
+                  size="icon"
+                  onClick={togglePhysics}
+                >
+                  <Magnet className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div className="flex gap-4">
+          <MultiselectDropdown
+            options={appLabels || []}
+            onChange={setSelectedInitiators}
+            placeholder="Initiator Application"
+          />
+          <Button
+            variant="outline"
+            onClick={() =>
+              setInitiatorTargetOperator((op) => (op === "AND" ? "OR" : "AND"))
+            }
+          >
+            {initiatorTargetOperator}
+          </Button>
+          <MultiselectDropdown
+            options={appLabels || []}
+            onChange={setSelectedTargets}
+            placeholder="Target Application"
+          />
+          <MultiselectDropdown
+            options={flowLabels || []}
+            onChange={setSelectedLabels}
+            placeholder="Labels"
+          />
+        </div>
+      </div>
+
+      <div ref={containerRef} className="flex-1 min-h-0">
+        {isLoading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 px-4 pb-4">
+        <QueryInput
+          onQueryResults={handleQueryResults}
+          query={query}
+          setQuery={setQuery}
+          showHistory={true}
+        />
+      </div>
+
+      <Dialog
+        open={isApplicationDialogOpen}
+        onOpenChange={setIsApplicationDialogOpen}
+      >
+        <DialogContent
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
+          aria-describedby="dialog-description"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {Object.keys(applicationData).length === 0
+                ? "Add new application"
+                : "Edit application"}
+            </DialogTitle>
+          </DialogHeader>
+          <p id="dialog-description" className="sr-only">
+            Use this form to create a new application and add it to the network
+            graph.
+          </p>
+          <ScrollArea className="flex-1 px-4">
+            <div className="py-4">
+              <ApplicationForm
+                onSubmit={handleApplicationSubmit}
+                data={applicationData.nodeData}
+              />
+            </div>
+          </ScrollArea>
+          <DialogFooter className="mt-4 w-full">
+            <div className="flex w-full justify-between items-center">
+              {Object.keys(applicationData).length > 0 &&
+              applicationData.hasRelationship == false ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setIsConfirmModalOpen({
+                      show: true,
+                      data: applicationData.nodeData,
+                      type: applicationData.nodeData.type,
+                    });
+                    setIsApplicationDialogOpen(false);
+                  }}
+                >
+                  Delete application
+                </Button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsApplicationDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  form="application-form"
+                  disabled={isLoading}
+                >
+                  Save application
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
+        <DialogContent
+          className="sm:max-w-[800px] h-[90vh] flex flex-col z-[700]"
+          aria-describedby="dialog-description"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {Object.keys(flowData).length === 0
+                ? "Add new flow"
+                : "Edit flow"}
+            </DialogTitle>
+          </DialogHeader>
+          <p id="dialog-description" className="sr-only">
+            Use this form to create a new flow.
+          </p>
+          <ScrollArea className="flex-1 px-4">
+            <div className="py-4">
+              <FlowForm onSubmit={handleFlowSubmit} data={flowData} />
+            </div>
+          </ScrollArea>
+          <DialogFooter className="mt-4 w-full">
+            <div className="flex w-full justify-between items-center">
+              {Object.keys(flowData).length > 0 ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setIsConfirmModalOpen({
+                      show: true,
+                      data: flowData,
+                      type: flowData.type,
+                    });
+                    console.log(flowData);
+                    setIsFlowDialogOpen(false);
+                  }}
+                >
+                  Delete flow
+                </Button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsFlowDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" form="flow-form" disabled={isLoading}>
+                  Save flow
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmModal
+        isOpen={isConfirmModalOpen.show}
+        onClose={() =>
+          setIsConfirmModalOpen({ show: false, data: {}, type: "" })
+        }
+        onConfirm={() => handleDeleteButton(isConfirmModalOpen.data)}
+        title={`Delete ${isConfirmModalOpen.type}`}
+        description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+    </div>
+  );
+}

@@ -2,6 +2,7 @@
 
 import { VerticalMenu } from "@/components/VerticalMenu";
 import { NetworkGraph } from "@/components/NetworkGraph";
+import { NetworkGraphCytoscape } from "@/components/NetworkGraphCytoscape";
 import { DrawingEditor } from "@/components/DrawingEditor";
 import { HelpPage } from "@/components/HelpPage";
 import { TablesPage } from "@/components/TablesPage";
@@ -18,6 +19,9 @@ export default function Home() {
         <div className="flex-1 min-h-0 relative">
           <div className={`absolute inset-0 ${activeView === "graph" ? "block" : "hidden"}`}>
             <NetworkGraph />
+          </div>
+          <div className={`absolute inset-0 ${activeView === "graph2" ? "block" : "hidden"}`}> 
+            <NetworkGraphCytoscape />
           </div>
           <div className={`absolute inset-0 ${activeView === "draw" ? "block" : "hidden"}`}>
             <DrawingEditor />

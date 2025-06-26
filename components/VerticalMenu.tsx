@@ -11,6 +11,7 @@ interface VerticalMenuProps {
 export function VerticalMenu({ activeView, onViewChange }: VerticalMenuProps) {
   const topMenuItems = [
     { icon: Network, label: "Graph", id: "graph" },
+    { icon: Network, label: "Graph2", id: "graph2" },
     { icon: Table2, label: "Table", id: "table" },
     { icon: PenLine, label: "Draw", id: "draw" },
   ];
