@@ -124,7 +124,7 @@ export function TablesPage() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState({
     show: false,
     data: {},
-    type: ""
+    type: "",
   });
 
   const fetchApplications = async () => {
@@ -136,7 +136,7 @@ export function TablesPage() {
             type: "application",
             hasRelationship: record.hasRelations,
             ...record.a.properties,
-          }))
+          })),
         );
       } else {
         toast.error("Failed to load applications");
@@ -154,7 +154,7 @@ export function TablesPage() {
             initiator: record.initiator,
             target: record.target,
             ...record.r.properties,
-          }))
+          })),
         );
       } else {
         toast.error("Failed to load flows");
@@ -186,8 +186,8 @@ export function TablesPage() {
   const filterData = (data: TableData[]) => {
     return data.filter((item) =>
       Object.values(item).some((value) =>
-        String(value).toLowerCase().includes(filterValue.toLowerCase())
-      )
+        String(value).toLowerCase().includes(filterValue.toLowerCase()),
+      ),
     );
   };
 
@@ -260,9 +260,10 @@ export function TablesPage() {
   }
 
   const openDialog = (tableShown: string, rowId: string) => {
-
     if (tableShown == "applications") {
-      setApplicationData(cleanObj(applications.find((obj) => obj.id === rowId)));
+      setApplicationData(
+        cleanObj(applications.find((obj) => obj.id === rowId)),
+      );
       setFlowData({});
       setIsApplicationDialogOpen(true);
     } else {
@@ -441,7 +442,7 @@ export function TablesPage() {
     }
 
     setIsConfirmModalOpen({ show: false, data: {}, type: "" });
-  setIsLoading(false);
+    setIsLoading(false);
   };
 
   const exportToExcel = (data: TableData[], cols: string[], name: string) => {
@@ -452,7 +453,7 @@ export function TablesPage() {
           row[col] = formatValue(item[col]);
         });
         return row;
-      })
+      }),
     );
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, name);
@@ -495,52 +496,52 @@ export function TablesPage() {
 
         <div className="flex-1 min-h-0 border rounded-md overflow-auto">
           <Table className="min-w-full">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm">
-                        Edit
-                      </TableHead>
-                      {columns.map((column: any) => (
-                        <TableHead
-                          key={column}
-                          className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm"
-                        >
-                          <Button
-                            variant="ghost"
-                            onClick={() => handleSort(column)}
-                            className="h-8 px-2 font-medium"
-                          >
-                            {column.charAt(0).toUpperCase() +
-                              column.slice(1).replace(/_/g, " ")}
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openDialog(tableShown, item.id)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                        {columns.map((column: any) => (
-                          <TableCell
-                            key={`${item.id}-${column}`}
-                            className="whitespace-nowrap"
-                          >
-                            {formatValue(item[column])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm">
+                  Edit
+                </TableHead>
+                {columns.map((column: any) => (
+                  <TableHead
+                    key={column}
+                    className="sticky top-0 z-10 bg-background whitespace-nowrap shadow-sm"
+                  >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort(column)}
+                      className="h-8 px-2 font-medium"
+                    >
+                      {column.charAt(0).toUpperCase() +
+                        column.slice(1).replace(/_/g, " ")}
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openDialog(tableShown, item.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                  {columns.map((column: any) => (
+                    <TableCell
+                      key={`${item.id}-${column}`}
+                      className="whitespace-nowrap"
+                    >
+                      {formatValue(item[column])}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
           </Table>
         </div>
 
@@ -610,7 +611,7 @@ export function TablesPage() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: applicationData,
-                      type: applicationData.type
+                      type: applicationData.type,
                     });
                     setIsApplicationDialogOpen(false);
                   }}
@@ -665,7 +666,7 @@ export function TablesPage() {
                     setIsConfirmModalOpen({
                       show: true,
                       data: flowData,
-                      type: flowData.type
+                      type: flowData.type,
                     });
                     setIsFlowDialogOpen(false);
                   }}
@@ -693,7 +694,9 @@ export function TablesPage() {
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
-        onClose={() => setIsConfirmModalOpen({ show: false, data: {}, type: "" })}
+        onClose={() =>
+          setIsConfirmModalOpen({ show: false, data: {}, type: "" })
+        }
         onConfirm={() => handleDelete(isConfirmModalOpen.data)}
         title={`Delete ${isConfirmModalOpen.type}`}
         description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
