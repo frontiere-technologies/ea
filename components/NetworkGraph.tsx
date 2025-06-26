@@ -77,10 +77,10 @@ const options = {
   physics: {
     enabled: false,
     barnesHut: {
-      gravitationalConstant: -2000,
-      centralGravity: 0.3,
-      springLength: 200,
-      springConstant: 0.04,
+      gravitationalConstant: -800,
+      centralGravity: 0.05,
+      springLength: 150,
+      springConstant: 0.02,
     },
     stabilization: {
       enabled: true,
@@ -637,6 +637,9 @@ export function NetworkGraph() {
         networkRef.current?.setOptions({
           physics: { enabled: physicsStateRef.current },
         });
+        if (!physicsStateRef.current) {
+          networkRef.current?.redraw();
+        }
       });
 
       networkRef.current.on("doubleClick", (params) => {
