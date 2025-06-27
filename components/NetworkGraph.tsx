@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Network } from "vis-network";
 import { executeQuery } from "@/lib/neo4j";
-import { AppWindow, Link as Line, Magnet } from "lucide-react";
+import { AppWindow, Link as Line, Magnet, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 import { ApplicationForm } from "./ApplicationForm";
 import { FlowForm } from "./FlowForm";
 import { ConfirmModal } from "./ConfirmModal";
+import { ColorConfigDialog, ColorRule } from "./ColorConfigDialog";
 import {
   Tooltip,
   TooltipContent,
@@ -214,6 +215,24 @@ function formatKey(key: string): string {
     .join(" ");
 }
 
+function getNodeColor(rules: ColorRule[], props: Record<string, any>): string | undefined {
+  for (const r of rules) {
+    if (props && props[r.field] !== undefined && String(props[r.field]) === r.value) {
+      return r.color;
+    }
+  }
+  return undefined;
+}
+
+function getEdgeColor(rules: ColorRule[], props: Record<string, any>): string | undefined {
+  for (const r of rules) {
+    if (props && props[r.field] !== undefined && String(props[r.field]) === r.value) {
+      return r.color;
+    }
+  }
+  return undefined;
+}
+
 export function NetworkGraph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
@@ -242,8 +261,26 @@ export function NetworkGraph() {
     data: {},
     type: "",
   });
+  const [isColorDialogOpen, setIsColorDialogOpen] = useState(false);
+  const [nodeColorRules, setNodeColorRules] = useState<ColorRule[]>([]);
+  const [edgeColorRules, setEdgeColorRules] = useState<ColorRule[]>([]);
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
+
+  useEffect(() => {
+    const n = localStorage.getItem("nodeColorRules");
+    const e = localStorage.getItem("edgeColorRules");
+    if (n) setNodeColorRules(JSON.parse(n));
+    if (e) setEdgeColorRules(JSON.parse(e));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("nodeColorRules", JSON.stringify(nodeColorRules));
+  }, [nodeColorRules]);
+
+  useEffect(() => {
+    localStorage.setItem("edgeColorRules", JSON.stringify(edgeColorRules));
+  }, [edgeColorRules]);
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
@@ -260,22 +297,26 @@ export function NetworkGraph() {
       if (nodeA && !nodes.has(nodeA.elementId)) {
         const label =
           nodeA.properties.name || nodeA.properties.nickname || "Unnamed";
+        const nColor = getNodeColor(nodeColorRules, nodeA.properties);
         nodes.set(nodeA.elementId, {
           id: nodeA.elementId,
           label: label,
           title: createNodeTooltip(nodeA.properties),
           group: nodeA.labels[0].toLowerCase(),
+          ...(nColor ? { color: { background: nColor, border: nColor } } : {}),
         });
       }
 
       if (nodeB && !nodes.has(nodeB.elementId)) {
         const label =
           nodeB.properties.name || nodeB.properties.nickname || "Unnamed";
+        const nColor = getNodeColor(nodeColorRules, nodeB.properties);
         nodes.set(nodeB.elementId, {
           id: nodeB.elementId,
           label: label,
           title: createNodeTooltip(nodeB.properties),
           group: nodeB.labels[0].toLowerCase(),
+          ...(nColor ? { color: { background: nColor, border: nColor } } : {}),
         });
       }
 
@@ -284,6 +325,7 @@ export function NetworkGraph() {
         relationship.startNodeElementId &&
         relationship.endNodeElementId
       ) {
+        const eColor = getEdgeColor(edgeColorRules, relationship.properties);
         edges.push({
           id: relationship.elementId,
           from: relationship.startNodeElementId,
@@ -291,6 +333,7 @@ export function NetworkGraph() {
           label: relationship.properties?.name || relationship.type,
           arrows: "to",
           title: createEdgeTooltip(relationship.properties),
+          ...(eColor ? { color: { color: eColor, highlight: eColor } } : {}),
         });
       }
     });
@@ -355,11 +398,13 @@ export function NetworkGraph() {
           const newNode = result[0].a;
 
           if (networkRef.current) {
+            const nColor = getNodeColor(nodeColorRules, newNode.properties);
             const nodeData = {
               id: newNode.elementId,
               label: newNode.properties.name,
               title: createNodeTooltip(newNode.properties),
               group: "application",
+              ...(nColor ? { color: { background: nColor, border: nColor } } : {}),
             };
 
             const network = networkRef.current as NetworkWithBody;
@@ -404,6 +449,7 @@ export function NetworkGraph() {
           const newNode = result[0].f;
 
           if (networkRef.current) {
+            const eColor = getEdgeColor(edgeColorRules, newNode.properties);
             const edgeData = {
               id: newNode.elementId,
               from: newNode.startNodeElementId,
@@ -411,6 +457,7 @@ export function NetworkGraph() {
               label: newNode.properties.name || newNode.type,
               arrows: "to",
               title: createEdgeTooltip(newNode.properties),
+              ...(eColor ? { color: { color: eColor, highlight: eColor } } : {}),
             };
 
             const network = networkRef.current as NetworkWithBody;
@@ -545,12 +592,15 @@ export function NetworkGraph() {
             const x = sourceNodePosition.x + radius * Math.cos(angle);
             const y = sourceNodePosition.y + radius * Math.sin(angle);
 
+            const nColor = getNodeColor(nodeColorRules, node.properties);
+
             const nodeData = {
               id: node.elementId,
               label:
                 node.properties.name || node.properties.nickname || "Unnamed",
               title: createNodeTooltip(node.properties),
               group: node.labels[0].toLowerCase(),
+              ...(nColor ? { color: { background: nColor, border: nColor } } : {}),
               x: x,
               y: y,
             };
@@ -563,6 +613,7 @@ export function NetworkGraph() {
           relationship &&
           !currentDataRef.current.edges.has(relationship.elementId)
         ) {
+          const eColor = getEdgeColor(edgeColorRules, relationship.properties);
           const edgeData = {
             id: relationship.elementId,
             from: relationship.startNodeElementId,
@@ -570,6 +621,7 @@ export function NetworkGraph() {
             label: relationship.properties.name || relationship.type,
             arrows: "to",
             title: createEdgeTooltip(relationship.properties),
+            ...(eColor ? { color: { color: eColor, highlight: eColor } } : {}),
           };
           currentDataRef.current.edges.set(relationship.elementId, edgeData);
           newEdges.push(edgeData);
@@ -846,6 +898,21 @@ export function NetworkGraph() {
                 <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
               </TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsColorDialogOpen(true)}
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Configure colors</p>
+              </TooltipContent>
+            </Tooltip>
           </TooltipProvider>
         </div>
 
@@ -1015,6 +1082,15 @@ export function NetworkGraph() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ColorConfigDialog
+        open={isColorDialogOpen}
+        onOpenChange={setIsColorDialogOpen}
+        nodeRules={nodeColorRules}
+        setNodeRules={setNodeColorRules}
+        edgeRules={edgeColorRules}
+        setEdgeRules={setEdgeColorRules}
+      />
 
       <ConfirmModal
         isOpen={isConfirmModalOpen.show}
