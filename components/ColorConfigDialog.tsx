@@ -85,7 +85,7 @@ export function ColorConfigDialog({
 }: ColorConfigDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] h-[80vh] flex flex-col z-[700]">
         <DialogHeader>
           <DialogTitle>Color configuration</DialogTitle>
         </DialogHeader>
