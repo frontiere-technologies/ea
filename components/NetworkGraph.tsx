@@ -215,9 +215,18 @@ function formatKey(key: string): string {
     .join(" ");
 }
 
+function matchesRuleValue(prop: any, value: string): boolean {
+  if (prop === undefined || prop === null) return false;
+  const str = String(prop);
+  if (str.includes(',')) {
+    return str.split(',').map((s) => s.trim()).includes(value);
+  }
+  return str === value;
+}
+
 function getNodeColor(rules: ColorRule[], props: Record<string, any>): string | undefined {
   for (const r of rules) {
-    if (props && props[r.field] !== undefined && String(props[r.field]) === r.value) {
+    if (props && matchesRuleValue(props[r.field], r.value)) {
       return r.color;
     }
   }
@@ -226,7 +235,7 @@ function getNodeColor(rules: ColorRule[], props: Record<string, any>): string | 
 
 function getEdgeColor(rules: ColorRule[], props: Record<string, any>): string | undefined {
   for (const r of rules) {
-    if (props && props[r.field] !== undefined && String(props[r.field]) === r.value) {
+    if (props && matchesRuleValue(props[r.field], r.value)) {
       return r.color;
     }
   }
