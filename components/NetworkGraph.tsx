@@ -69,35 +69,24 @@ const options = {
       size: 16,
       color: "#333333"
     },
-    shadow: {
-      enabled: true,
-      color: "rgba(0,0,0,0.2)",
-      size: 10,
-      x: 2,
-      y: 2
-    },
+    shadow: true,
     margin: 10,
     borderWidth: 2,
   },
   edges: {
     font: { 
       size: 12, 
-      align: "middle",
-      background: "rgba(255,255,255,0.9)",
-      strokeWidth: 2,
-      strokeColor: "#ffffff"
+      align: "middle"
     },
     color: { 
       color: "#848484", 
-      highlight: "#2196F3",
-      hover: "#2196F3"
+      highlight: "#2196F3"
     },
     width: 2,
     arrows: { 
       to: { 
         enabled: true, 
-        scaleFactor: 0.8,
-        type: "arrow"
+        scaleFactor: 0.8
       } 
     },
     smooth: {
@@ -126,16 +115,12 @@ const options = {
       iterations: 1500,
       updateInterval: 50,
       onlyDynamicEdges: false,
-      fit: true,
-      adaptiveTimestep: true
+      fit: true
     },
-    timestep: 0.5,
-    adaptiveTimestep: true
+    timestep: 0.5
   },
   layout: {
-    improvedLayout: true,
-    clusterThreshold: 150,
-    hierarchical: false
+    improvedLayout: true
   },
   groups: {
     application: {
@@ -225,10 +210,6 @@ function applyIntelligentEdgeRouting(edges: any[]): any[] {
           enabled: true,
           type: "dynamic",
           roundness: curvature
-        },
-        color: {
-          ...edge.color,
-          opacity: 0.8
         }
       });
     });
@@ -629,11 +610,9 @@ export function NetworkGraph() {
             iterations: 1500,
             updateInterval: 50,
             onlyDynamicEdges: false,
-            fit: true,
-            adaptiveTimestep: true
+            fit: true
           },
-          timestep: 0.5,
-          adaptiveTimestep: true
+          timestep: 0.5
         },
       });
 
@@ -763,11 +742,9 @@ export function NetworkGraph() {
                   iterations: 800, // Iterazioni ridotte post-espansione
                   updateInterval: 25,
                   onlyDynamicEdges: false,
-                  fit: false,
-                  adaptiveTimestep: true
+                  fit: false
                 },
-                timestep: 0.5,
-                adaptiveTimestep: true
+                timestep: 0.5
               },
             });
           }
