@@ -73,7 +73,7 @@ const options = {
     color: { color: "#848484", highlight: "#848484" },
     width: 2,
     arrows: { to: { enabled: true, scaleFactor: 1 } },
-    arrowStrikethrough: true
+    arrowStrikethrough: false
   },
   physics: {
     enabled: true,
