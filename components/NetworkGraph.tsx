@@ -87,6 +87,7 @@ const options = {
       highlight: "#2196F3"
     },
     width: 2,
+    arrowStrikethrough: false,
     arrows: { 
       to: { 
         enabled: true, 
