@@ -43,10 +43,14 @@ interface NetworkWithBody extends Network {
       nodes: {
         add: (node: any) => void;
         remove: (node: any) => void;
+        update: (node: any) => void;
+        get: (id?: string) => any;
       };
       edges: {
         add: (edge: any) => void;
         remove: (edge: any) => void;
+        update: (edge: any) => void;
+        get: (id?: string) => any;
       };
     };
   };
@@ -65,45 +69,206 @@ type TableData = {
 const options = {
   nodes: {
     shape: "box",
-    font: { size: 16 },
+    font: { 
+      size: 16,
+      color: "#333333"
+    },
     shadow: true,
+    margin: 10,
+    borderWidth: 2,
   },
   edges: {
-    font: { size: 12, align: "middle" },
-    color: { color: "#848484", highlight: "#848484" },
+    font: { 
+      size: 12, 
+      align: "middle"
+    },
+    color: { 
+      color: "#848484", 
+      highlight: "#2196F3"
+    },
     width: 2,
-    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+    arrows: { 
+      to: { 
+        enabled: true, 
+        scaleFactor: 0.8
+      } 
+    },
+    smooth: {
+      enabled: true,
+      type: "dynamic",
+      roundness: 0.2
+    },
+    length: 300,
+    selectionWidth: 3,
   },
   physics: {
     enabled: false,
     barnesHut: {
-      gravitationalConstant: -2000,
-      centralGravity: 0.3,
-      springLength: 200,
+      gravitationalConstant: -4000,
+      centralGravity: 0.1,
+      springLength: 300,
       springConstant: 0.04,
+      damping: 0.95,
+      avoidOverlap: 1
     },
+    maxVelocity: 30,
+    minVelocity: 0.1,
+    solver: "barnesHut",
     stabilization: {
       enabled: true,
-      iterations: 1000,
+      iterations: 1500,
       updateInterval: 50,
       onlyDynamicEdges: false,
-      fit: true,
+      fit: true
     },
+    timestep: 0.5
   },
   layout: {
-    improvedLayout: true,
+    improvedLayout: true
   },
   groups: {
     application: {
-      color: { background: "#74b9ff", border: "#0984e3" },
+      color: { 
+        background: "#74b9ff", 
+        border: "#0984e3",
+        highlight: {
+          background: "#5faef7",
+          border: "#0770c7"
+        }
+      },
       shape: "box",
+      margin: 15,
     },
     flow: {
-      color: { background: "#ffeaa7", border: "#fdcb6e" },
+      color: { 
+        background: "#ffeaa7", 
+        border: "#fdcb6e",
+        highlight: {
+          background: "#ffe082",
+          border: "#ffb74d"
+        }
+      },
       shape: "triangle",
+      margin: 15,
     },
   },
+  interaction: {
+    hover: true,
+    hoverConnectedEdges: true,
+    selectConnectedEdges: false,
+    tooltipDelay: 300,
+    zoomView: true,
+    dragView: true
+  }
 };
+
+// Funzione per calcolare la curvatura dinamica degli archi
+function calculateEdgeCurvature(fromId: string, toId: string, allEdges: any[], edgeIndex: number): number {
+  // Trova tutti gli archi tra gli stessi nodi (in entrambe le direzioni)
+  const relatedEdges = allEdges.filter(edge => 
+    (edge.from === fromId && edge.to === toId) || 
+    (edge.from === toId && edge.to === fromId)
+  );
+  
+  const totalEdges = relatedEdges.length;
+  
+  if (totalEdges === 1) {
+    return 0; // Nessuna curvatura per archi singoli
+  }
+  
+  // Calcola la curvatura crescente per archi multipli
+  const baseRoundness = 0.3;
+  const maxRoundness = 1.2;
+  const step = (maxRoundness - baseRoundness) / Math.max(totalEdges - 1, 1);
+  
+  // Distribuisci gli archi simmetricamente
+  const centerIndex = (totalEdges - 1) / 2;
+  const offset = edgeIndex - centerIndex;
+  
+  return baseRoundness + Math.abs(offset) * step * (offset > 0 ? 1 : -1);
+}
+
+// Funzione per applicare il routing intelligente degli archi
+function applyIntelligentEdgeRouting(edges: any[]): any[] {
+  const edgeGroups = new Map<string, any[]>();
+  
+  // Raggruppa gli archi per coppia di nodi
+  edges.forEach(edge => {
+    const key = [edge.from, edge.to].sort().join('-');
+    if (!edgeGroups.has(key)) {
+      edgeGroups.set(key, []);
+    }
+    edgeGroups.get(key)!.push(edge);
+  });
+  
+  // Applica curvature diverse per ogni gruppo
+  const processedEdges: any[] = [];
+  
+  edgeGroups.forEach((groupEdges, key) => {
+    groupEdges.forEach((edge, index) => {
+      const curvature = calculateEdgeCurvature(edge.from, edge.to, groupEdges, index);
+      
+      processedEdges.push({
+        ...edge,
+        smooth: {
+          enabled: curvature !== 0,
+          type: "dynamic",
+          roundness: curvature
+        }
+      });
+    });
+  });
+  
+  return processedEdges;
+}
+
+// Funzione per riposizionare dinamicamente gli archi quando un nodo viene mosso
+function repositionConnectedEdges(network: NetworkWithBody, movedNodeId: string) {
+  try {
+    const allEdges = network.body.data.edges.get();
+    const connectedEdges = allEdges.filter((edge: any) => 
+      edge.from === movedNodeId || edge.to === movedNodeId
+    );
+
+    if (connectedEdges.length === 0) return;
+
+    // Raggruppa gli archi per coppie di nodi connessi
+    const edgeGroups = new Map<string, any[]>();
+    
+    connectedEdges.forEach((edge: any) => {
+      const key = [edge.from, edge.to].sort().join('-');
+      if (!edgeGroups.has(key)) {
+        edgeGroups.set(key, []);
+      }
+      edgeGroups.get(key)!.push(edge);
+    });
+
+    // Riposiziona ogni gruppo di archi con curvature diverse
+    const updatedEdges: any[] = [];
+    
+    edgeGroups.forEach((groupEdges, key) => {
+      groupEdges.forEach((edge: any, index: number) => {
+        const curvature = calculateEdgeCurvature(edge.from, edge.to, groupEdges, index);
+        
+        updatedEdges.push({
+          ...edge,
+          smooth: {
+            enabled: curvature !== 0,
+            type: "dynamic",
+            roundness: curvature
+          }
+        });
+      });
+    });
+
+    // Aggiorna gli archi nel network
+    if (updatedEdges.length > 0) {
+      network.body.data.edges.update(updatedEdges);
+    }
+  } catch (error) {
+    console.error("Error repositioning connected edges:", error);
+  }
+}
 
 function transformData(data: any) {
   const result: any = {};
@@ -183,7 +348,7 @@ function createNodeTooltip(properties: Record<string, any>): string {
       return `<strong>${formatKey(key)}</strong>: ${value}`;
     });
 
-  return `<div style="max-width: 300px; padding: 8px;">
+  return `<div style="max-width: 300px; padding: 12px; background: rgba(255,255,255,0.95); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
     ${fields.join("<br>")}
   </div>`;
 }
@@ -202,7 +367,7 @@ function createEdgeTooltip(properties: Record<string, any>): string {
       return `<strong>${formatKey(key)}</strong>: ${value}`;
     });
 
-  return `<div style="max-width: 300px; padding: 8px;">
+  return `<div style="max-width: 300px; padding: 12px; background: rgba(255,255,255,0.95); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
     ${fields.join("<br>")}
   </div>`;
 }
@@ -249,7 +414,6 @@ export function NetworkGraph() {
     const nodes = new Map();
     const edges: any = [];
 
-    //console.log("RESULTS ",results)
     setDataTransformed(transformData(results));
 
     results.forEach((record) => {
@@ -295,9 +459,12 @@ export function NetworkGraph() {
       }
     });
 
+    // Applica il routing intelligente degli archi
+    const processedEdges = applyIntelligentEdgeRouting(edges);
+
     setGraphData({
       nodes: Array.from(nodes.values()),
-      edges: edges,
+      edges: processedEdges,
     });
   }, []);
 
@@ -305,14 +472,6 @@ export function NetworkGraph() {
     try {
       const transformedData = {
         ...data,
-        /*internal_application_specialists: data.internal_application_specialists ? JSON.stringify(data.internal_application_specialists.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        business_partner_business_contacts: data.business_partner_business_contacts ? JSON.stringify(data.business_partner_business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        business_contacts: data.business_contacts ? JSON.stringify(data.business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        internal_developers: data.internal_developers ? JSON.stringify(data.internal_developers.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        ams_contacts_email: data.ams_contacts_email ? JSON.stringify(data.ams_contacts_email.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        ams_contact_phone: data.ams_contact_phone ? JSON.stringify(data.ams_contact_phone.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        smes_factory: data.smes_factory ? JSON.stringify(data.smes_factory.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",*/
         ams_contact_phone: data.ams_contact_phone || "",
         ams_expire_date: data.ams_expire_date || null,
         ams_supplier: data.ams_supplier || "",
@@ -333,11 +492,9 @@ export function NetworkGraph() {
     try {
       const transformedData = {
         ...data,
-        //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         release_date: data.release_date || null,
       };
 
-      //console.log("Data -> ", transformedData)
       await handleSaveFlow(transformedData);
     } catch (error) {
       console.error("Error transforming data:", error);
@@ -414,8 +571,14 @@ export function NetworkGraph() {
             };
 
             const network = networkRef.current as NetworkWithBody;
-            network.body.data.edges.add(edgeData);
-            currentDataRef.current.edges.set(newNode.elementId, edgeData);
+            
+            // Applica il routing intelligente per il nuovo arco
+            const allCurrentEdges = network.body.data.edges.get();
+            const processedEdges = applyIntelligentEdgeRouting([...allCurrentEdges, edgeData]);
+            const newEdgeProcessed = processedEdges.find(edge => edge.id === edgeData.id);
+            
+            network.body.data.edges.add(newEdgeProcessed || edgeData);
+            currentDataRef.current.edges.set(newNode.elementId, newEdgeProcessed || edgeData);
           }
 
           const newApp = transformData(result);
@@ -490,8 +653,32 @@ export function NetworkGraph() {
       networkRef.current.setOptions({
         physics: {
           enabled: newPhysicsState,
+          barnesHut: {
+            gravitationalConstant: -4000,
+            centralGravity: 0.1,
+            springLength: 300,
+            springConstant: 0.04,
+            damping: 0.95,
+            avoidOverlap: 1
+          },
+          maxVelocity: 30,
+          minVelocity: 0.1,
+          stabilization: {
+            enabled: newPhysicsState,
+            iterations: 1500,
+            updateInterval: 50,
+            onlyDynamicEdges: false,
+            fit: true
+          },
+          timestep: 0.5
         },
       });
+
+      if (newPhysicsState) {
+        toast.success("Physics enabled - Graph will stabilize");
+      } else {
+        toast.success("Physics disabled - Graph is now static");
+      }
     }
   }, [isPhysicsEnabled]);
 
@@ -524,8 +711,8 @@ export function NetworkGraph() {
       const newNodes: any = [];
       const newEdges: any = [];
 
-      const radius = 200;
-      const angleStep = (2 * Math.PI) / results.length;
+      const radius = 350; // Aumentato per maggiore distanza
+      const angleStep = (2 * Math.PI) / Math.max(results.length, 1);
 
       const newData = transformData(results);
 
@@ -580,7 +767,16 @@ export function NetworkGraph() {
         network.body.data.nodes.add(newNodes);
       }
       if (newEdges.length > 0) {
-        network.body.data.edges.add(newEdges);
+        // Applica il routing intelligente anche per i nuovi archi
+        const allCurrentEdges = Array.from(currentDataRef.current.edges.values());
+        const processedNewEdges = applyIntelligentEdgeRouting([...allCurrentEdges, ...newEdges]);
+        
+        // Aggiorna solo i nuovi archi con il routing intelligente
+        const finalNewEdges = processedNewEdges.filter(edge => 
+          newEdges.some(newEdge => newEdge.id === edge.id)
+        );
+        
+        network.body.data.edges.add(finalNewEdges);
       }
 
       if (newNodes.length > 0 || newEdges.length > 0) {
@@ -588,14 +784,25 @@ export function NetworkGraph() {
           if (networkRef.current) {
             networkRef.current.setOptions({
               physics: {
-                enabled: isPhysicsEnabled,
+                enabled: physicsStateRef.current,
+                barnesHut: {
+                  gravitationalConstant: -4000,
+                  centralGravity: 0.1,
+                  springLength: 300,
+                  springConstant: 0.04,
+                  damping: 0.95,
+                  avoidOverlap: 1
+                },
+                maxVelocity: 30,
+                minVelocity: 0.1,
                 stabilization: {
-                  enabled: true,
-                  iterations: 50,
+                  enabled: physicsStateRef.current,
+                  iterations: 800, // Iterazioni ridotte post-espansione
                   updateInterval: 25,
                   onlyDynamicEdges: false,
-                  fit: false,
+                  fit: false
                 },
+                timestep: 0.5
               },
             });
           }
@@ -603,6 +810,7 @@ export function NetworkGraph() {
       }
     } catch (error) {
       console.error("Error expanding node:", error);
+      toast.error("Failed to expand node");
     } finally {
       setIsLoading(false);
     }
@@ -629,11 +837,30 @@ export function NetworkGraph() {
         options
       );
 
-      networkRef.current.on("dragStart", () => {
+      // Listener per il drag dei nodi - ridirezione dinamica degli archi
+      networkRef.current.on("dragStart", (params) => {
         networkRef.current?.setOptions({ physics: { enabled: false } });
       });
 
-      networkRef.current.on("dragEnd", () => {
+      networkRef.current.on("dragging", (params) => {
+        if (params.nodes.length > 0) {
+          const draggedNodeId = params.nodes[0];
+          const network = networkRef.current as NetworkWithBody;
+          
+          // Riposiziona dinamicamente gli archi connessi durante il drag
+          repositionConnectedEdges(network, draggedNodeId);
+        }
+      });
+
+      networkRef.current.on("dragEnd", (params) => {
+        if (params.nodes.length > 0) {
+          const draggedNodeId = params.nodes[0];
+          const network = networkRef.current as NetworkWithBody;
+          
+          // Riposiziona definitivamente gli archi connessi alla fine del drag
+          repositionConnectedEdges(network, draggedNodeId);
+        }
+        
         networkRef.current?.setOptions({
           physics: { enabled: physicsStateRef.current },
         });
@@ -645,7 +872,6 @@ export function NetworkGraph() {
         }
       });
 
-      //Visualizzare la modale di modifica
       networkRef.current.on("oncontext", (params) => {
         params.event.preventDefault();
         if (params.nodes.length > 0) {
@@ -666,7 +892,6 @@ export function NetworkGraph() {
           const edgeData = dataTransformedRef.current[edgeId];
           edgeData["elementId"] = edgeId;
           setFlowData(edgeData);
-          //console.log('Clicked edge data:', edgeData);
           setIsFlowDialogOpen(true);
         }
       });
@@ -674,8 +899,23 @@ export function NetworkGraph() {
       networkRef.current.once("afterDrawing", () => {
         networkRef.current?.fit();
       });
+
+      // Aggiungi listener per stabilizzazione
+      networkRef.current.on("stabilizationProgress", (params) => {
+        const progress = Math.round((params.iterations / params.total) * 100);
+        if (progress % 20 === 0) { // Log ogni 20%
+          console.log(`Stabilization progress: ${progress}%`);
+        }
+      });
+
+      networkRef.current.on("stabilizationIterationsDone", () => {
+        console.log("Network stabilization completed");
+        toast.success("Graph layout stabilized");
+      });
+
     } catch (error) {
       console.error("Error initializing network:", error);
+      toast.error("Failed to initialize network graph");
     }
   }, [graphData]);
 
@@ -731,7 +971,6 @@ export function NetworkGraph() {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
-
   /* Gestione Dropdown */
 
   const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
@@ -781,7 +1020,6 @@ export function NetworkGraph() {
   return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
 }
 
-
   useEffect(() => {
     setQuery(q =>
       updateQueryWithFilters(
@@ -793,8 +1031,6 @@ export function NetworkGraph() {
       )
     );
   }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
-
-  /** */
 
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
