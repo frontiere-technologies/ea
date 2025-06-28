@@ -67,31 +67,55 @@ const options = {
     shape: "box",
     font: { size: 16 },
     shadow: true,
+    margin: 10,
+    widthConstraint: { minimum: 120, maximum: 300 },
+    heightConstraint: { minimum: 60 },
   },
   edges: {
-    font: { size: 12, align: "middle" },
+    font: { 
+      size: 12, 
+      align: "middle",
+      background: "rgba(255, 255, 255, 0.8)",
+      strokeWidth: 2,
+      strokeColor: "#ffffff"
+    },
     color: { color: "#848484", highlight: "#848484" },
     width: 2,
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+    smooth: {
+      enabled: true,
+      type: "dynamic",
+      roundness: 0.5
+    },
+    length: 250,
   },
   physics: {
     enabled: false,
     barnesHut: {
-      gravitationalConstant: -2000,
-      centralGravity: 0.3,
-      springLength: 200,
-      springConstant: 0.04,
+      gravitationalConstant: -4000,
+      centralGravity: 0.1,
+      springLength: 300,
+      springConstant: 0.02,
+      damping: 0.95,
+      avoidOverlap: 1
     },
+    maxVelocity: 30,
+    minVelocity: 0.1,
+    solver: 'barnesHut',
     stabilization: {
       enabled: true,
-      iterations: 1000,
+      iterations: 1500,
       updateInterval: 50,
       onlyDynamicEdges: false,
       fit: true,
     },
+    timestep: 0.5,
+    adaptiveTimestep: true
   },
   layout: {
     improvedLayout: true,
+    clusterThreshold: 150,
+    hierarchical: false
   },
   groups: {
     application: {
@@ -103,6 +127,12 @@ const options = {
       shape: "triangle",
     },
   },
+  interaction: {
+    dragNodes: true,
+    dragView: true,
+    zoomView: true,
+    selectConnectedEdges: false
+  }
 };
 
 function transformData(data: any) {
@@ -248,6 +278,7 @@ export function NetworkGraph() {
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
     const edges: any = [];
+    const edgeGroups = new Map(); // Track edges between same nodes
 
     //console.log("RESULTS ",results)
     setDataTransformed(transformData(results));
@@ -284,6 +315,24 @@ export function NetworkGraph() {
         relationship.startNodeElementId &&
         relationship.endNodeElementId
       ) {
+        const edgeKey = `${relationship.startNodeElementId}-${relationship.endNodeElementId}`;
+        const reverseEdgeKey = `${relationship.endNodeElementId}-${relationship.startNodeElementId}`;
+        
+        // Count existing edges between these nodes
+        const existingEdges = edgeGroups.get(edgeKey) || edgeGroups.get(reverseEdgeKey) || 0;
+        edgeGroups.set(edgeKey, existingEdges + 1);
+        
+        // Calculate smooth curve for multiple edges
+        let smooth = { enabled: true, type: "dynamic", roundness: 0.2 };
+        if (existingEdges > 0) {
+          const roundness = 0.2 + (existingEdges * 0.3);
+          smooth = { 
+            enabled: true, 
+            type: "curvedCW", 
+            roundness: Math.min(roundness, 1.0)
+          };
+        }
+
         edges.push({
           id: relationship.elementId,
           from: relationship.startNodeElementId,
@@ -291,6 +340,8 @@ export function NetworkGraph() {
           label: relationship.properties?.name || relationship.type,
           arrows: "to",
           title: createEdgeTooltip(relationship.properties),
+          smooth: smooth,
+          length: 300 + (existingEdges * 50), // Increase length for multiple edges
         });
       }
     });
@@ -491,18 +542,25 @@ export function NetworkGraph() {
         physics: {
           enabled: newPhysicsState,
           barnesHut: {
-            gravitationalConstant: -2000,
-            centralGravity: 0.3,
-            springLength: 200,
-            springConstant: 0.04,
+            gravitationalConstant: -4000,
+            centralGravity: 0.1,
+            springLength: 300,
+            springConstant: 0.02,
+            damping: 0.95,
+            avoidOverlap: 1
           },
+          maxVelocity: 30,
+          minVelocity: 0.1,
+          solver: 'barnesHut',
           stabilization: {
             enabled: newPhysicsState,
-            iterations: 1000,
+            iterations: 1500,
             updateInterval: 50,
             onlyDynamicEdges: false,
             fit: true,
           },
+          timestep: 0.5,
+          adaptiveTimestep: true
         },
       });
     }
@@ -537,8 +595,8 @@ export function NetworkGraph() {
       const newNodes: any = [];
       const newEdges: any = [];
 
-      const radius = 200;
-      const angleStep = (2 * Math.PI) / results.length;
+      const radius = 350; // Increased radius for better spacing
+      const angleStep = (2 * Math.PI) / Math.max(results.length, 4); // Minimum 4 positions
 
       const newData = transformData(results);
 
@@ -583,6 +641,7 @@ export function NetworkGraph() {
             label: relationship.properties.name || relationship.type,
             arrows: "to",
             title: createEdgeTooltip(relationship.properties),
+            length: 300,
           };
           currentDataRef.current.edges.set(relationship.elementId, edgeData);
           newEdges.push(edgeData);
@@ -603,18 +662,25 @@ export function NetworkGraph() {
               physics: {
                 enabled: physicsStateRef.current,
                 barnesHut: {
-                  gravitationalConstant: -2000,
-                  centralGravity: 0.3,
-                  springLength: 200,
-                  springConstant: 0.04,
+                  gravitationalConstant: -4000,
+                  centralGravity: 0.1,
+                  springLength: 300,
+                  springConstant: 0.02,
+                  damping: 0.95,
+                  avoidOverlap: 1
                 },
+                maxVelocity: 30,
+                minVelocity: 0.1,
+                solver: 'barnesHut',
                 stabilization: {
                   enabled: physicsStateRef.current,
-                  iterations: 200,
+                  iterations: 800,
                   updateInterval: 25,
                   onlyDynamicEdges: false,
                   fit: false,
                 },
+                timestep: 0.5,
+                adaptiveTimestep: true
               },
             });
           }
