@@ -76,6 +76,9 @@ const options = {
   },
   physics: {
     enabled: true,
+    "barnesHut": {
+      "springLength": 300
+    },
     "minVelocity": 0.75,
     "timestep": 0.42
   },
