@@ -75,20 +75,9 @@ const options = {
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: false,
-    barnesHut: {
-      gravitationalConstant: -2000,
-      centralGravity: 0.3,
-      springLength: 200,
-      springConstant: 0.04,
-    },
-    stabilization: {
-      enabled: true,
-      iterations: 1000,
-      updateInterval: 50,
-      onlyDynamicEdges: false,
-      fit: true,
-    },
+    enabled: true,
+    "minVelocity": 0.75,
+    "timestep": 0.42
   },
   layout: {
     improvedLayout: true,
