@@ -72,7 +72,6 @@ const options = {
     font: { size: 12, align: "middle" },
     color: { color: "#848484", highlight: "#848484" },
     width: 2,
-    arrows: { to: { enabled: true, scaleFactor: 1 } },
     arrowStrikethrough: false
   },
   physics: {
