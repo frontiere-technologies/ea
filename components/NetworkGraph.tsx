@@ -72,15 +72,23 @@ const options = {
     font: { size: 12, align: "middle" },
     color: { color: "#848484", highlight: "#848484" },
     width: 2,
-    arrowStrikethrough: false
+    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: true,
-    "barnesHut": {
-      "springLength": 300
+    enabled: false,
+    barnesHut: {
+      gravitationalConstant: -2000,
+      centralGravity: 0.3,
+      springLength: 200,
+      springConstant: 0.04,
     },
-    "minVelocity": 0.75,
-    "timestep": 0.42
+    stabilization: {
+      enabled: true,
+      iterations: 1000,
+      updateInterval: 50,
+      onlyDynamicEdges: false,
+      fit: true,
+    },
   },
   layout: {
     improvedLayout: true,
@@ -482,6 +490,19 @@ export function NetworkGraph() {
       networkRef.current.setOptions({
         physics: {
           enabled: newPhysicsState,
+          barnesHut: {
+            gravitationalConstant: -2000,
+            centralGravity: 0.3,
+            springLength: 200,
+            springConstant: 0.04,
+          },
+          stabilization: {
+            enabled: newPhysicsState,
+            iterations: 1000,
+            updateInterval: 50,
+            onlyDynamicEdges: false,
+            fit: true,
+          },
         },
       });
     }
@@ -580,10 +601,16 @@ export function NetworkGraph() {
           if (networkRef.current) {
             networkRef.current.setOptions({
               physics: {
-                enabled: isPhysicsEnabled,
+                enabled: physicsStateRef.current,
+                barnesHut: {
+                  gravitationalConstant: -2000,
+                  centralGravity: 0.3,
+                  springLength: 200,
+                  springConstant: 0.04,
+                },
                 stabilization: {
-                  enabled: true,
-                  iterations: 50,
+                  enabled: physicsStateRef.current,
+                  iterations: 200,
                   updateInterval: 25,
                   onlyDynamicEdges: false,
                   fit: false,
