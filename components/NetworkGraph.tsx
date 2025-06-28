@@ -43,10 +43,14 @@ interface NetworkWithBody extends Network {
       nodes: {
         add: (node: any) => void;
         remove: (node: any) => void;
+        update: (node: any) => void;
+        get: (id?: string) => any;
       };
       edges: {
         add: (edge: any) => void;
         remove: (edge: any) => void;
+        update: (edge: any) => void;
+        get: (id?: string) => any;
       };
     };
   };
@@ -173,8 +177,8 @@ function calculateEdgeCurvature(fromId: string, toId: string, allEdges: any[], e
   }
   
   // Calcola la curvatura crescente per archi multipli
-  const baseRoundness = 0.2;
-  const maxRoundness = 1.0;
+  const baseRoundness = 0.3;
+  const maxRoundness = 1.2;
   const step = (maxRoundness - baseRoundness) / Math.max(totalEdges - 1, 1);
   
   // Distribuisci gli archi simmetricamente
@@ -207,7 +211,7 @@ function applyIntelligentEdgeRouting(edges: any[]): any[] {
       processedEdges.push({
         ...edge,
         smooth: {
-          enabled: true,
+          enabled: curvature !== 0,
           type: "dynamic",
           roundness: curvature
         }
@@ -216,6 +220,54 @@ function applyIntelligentEdgeRouting(edges: any[]): any[] {
   });
   
   return processedEdges;
+}
+
+// Funzione per riposizionare dinamicamente gli archi quando un nodo viene mosso
+function repositionConnectedEdges(network: NetworkWithBody, movedNodeId: string) {
+  try {
+    const allEdges = network.body.data.edges.get();
+    const connectedEdges = allEdges.filter((edge: any) => 
+      edge.from === movedNodeId || edge.to === movedNodeId
+    );
+
+    if (connectedEdges.length === 0) return;
+
+    // Raggruppa gli archi per coppie di nodi connessi
+    const edgeGroups = new Map<string, any[]>();
+    
+    connectedEdges.forEach((edge: any) => {
+      const key = [edge.from, edge.to].sort().join('-');
+      if (!edgeGroups.has(key)) {
+        edgeGroups.set(key, []);
+      }
+      edgeGroups.get(key)!.push(edge);
+    });
+
+    // Riposiziona ogni gruppo di archi con curvature diverse
+    const updatedEdges: any[] = [];
+    
+    edgeGroups.forEach((groupEdges, key) => {
+      groupEdges.forEach((edge: any, index: number) => {
+        const curvature = calculateEdgeCurvature(edge.from, edge.to, groupEdges, index);
+        
+        updatedEdges.push({
+          ...edge,
+          smooth: {
+            enabled: curvature !== 0,
+            type: "dynamic",
+            roundness: curvature
+          }
+        });
+      });
+    });
+
+    // Aggiorna gli archi nel network
+    if (updatedEdges.length > 0) {
+      network.body.data.edges.update(updatedEdges);
+    }
+  } catch (error) {
+    console.error("Error repositioning connected edges:", error);
+  }
 }
 
 function transformData(data: any) {
@@ -519,8 +571,14 @@ export function NetworkGraph() {
             };
 
             const network = networkRef.current as NetworkWithBody;
-            network.body.data.edges.add(edgeData);
-            currentDataRef.current.edges.set(newNode.elementId, edgeData);
+            
+            // Applica il routing intelligente per il nuovo arco
+            const allCurrentEdges = network.body.data.edges.get();
+            const processedEdges = applyIntelligentEdgeRouting([...allCurrentEdges, edgeData]);
+            const newEdgeProcessed = processedEdges.find(edge => edge.id === edgeData.id);
+            
+            network.body.data.edges.add(newEdgeProcessed || edgeData);
+            currentDataRef.current.edges.set(newNode.elementId, newEdgeProcessed || edgeData);
           }
 
           const newApp = transformData(result);
@@ -779,11 +837,30 @@ export function NetworkGraph() {
         options
       );
 
-      networkRef.current.on("dragStart", () => {
+      // Listener per il drag dei nodi - ridirezione dinamica degli archi
+      networkRef.current.on("dragStart", (params) => {
         networkRef.current?.setOptions({ physics: { enabled: false } });
       });
 
-      networkRef.current.on("dragEnd", () => {
+      networkRef.current.on("dragging", (params) => {
+        if (params.nodes.length > 0) {
+          const draggedNodeId = params.nodes[0];
+          const network = networkRef.current as NetworkWithBody;
+          
+          // Riposiziona dinamicamente gli archi connessi durante il drag
+          repositionConnectedEdges(network, draggedNodeId);
+        }
+      });
+
+      networkRef.current.on("dragEnd", (params) => {
+        if (params.nodes.length > 0) {
+          const draggedNodeId = params.nodes[0];
+          const network = networkRef.current as NetworkWithBody;
+          
+          // Riposiziona definitivamente gli archi connessi alla fine del drag
+          repositionConnectedEdges(network, draggedNodeId);
+        }
+        
         networkRef.current?.setOptions({
           physics: { enabled: physicsStateRef.current },
         });
