@@ -43,14 +43,10 @@ interface NetworkWithBody extends Network {
       nodes: {
         add: (node: any) => void;
         remove: (node: any) => void;
-        update: (node: any) => void;
-        get: (id?: string) => any;
       };
       edges: {
         add: (edge: any) => void;
         remove: (edge: any) => void;
-        update: (edge: any) => void;
-        get: (id?: string) => any;
       };
     };
   };
@@ -69,273 +65,99 @@ type TableData = {
 const options = {
   nodes: {
     shape: "box",
-    font: { 
-      size: 16,
-      color: "#333333"
-    },
+    font: { size: 16 },
     shadow: true,
-    margin: 10,
-    borderWidth: 2,
   },
   edges: {
-    font: { 
-      size: 12, 
-      align: "middle"
-    },
-    color: { 
-      color: "#848484", 
-      highlight: "#2196F3"
-    },
+    font: { size: 12, align: "middle" },
+    color: { color: "#848484", highlight: "#848484" },
     width: 2,
-    arrowStrikethrough: false,
-    arrows: { 
-      to: { 
-        enabled: true, 
-        scaleFactor: 0.8
-      } 
-    },
-    smooth: {
-      enabled: true,
-      type: "dynamic",
-      roundness: 0.2
-    },
-    length: 300,
-    selectionWidth: 3,
+    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
     enabled: false,
     barnesHut: {
-      gravitationalConstant: -4000,
-      centralGravity: 0.1,
-      springLength: 300,
+      gravitationalConstant: -2000,
+      centralGravity: 0.3,
+      springLength: 200,
       springConstant: 0.04,
-      damping: 0.95,
-      avoidOverlap: 1
     },
-    maxVelocity: 30,
-    minVelocity: 0.1,
-    solver: "barnesHut",
     stabilization: {
       enabled: true,
-      iterations: 1500,
+      iterations: 1000,
       updateInterval: 50,
       onlyDynamicEdges: false,
-      fit: true
+      fit: true,
     },
-    timestep: 0.5
   },
   layout: {
-    improvedLayout: true
+    improvedLayout: true,
   },
   groups: {
     application: {
-      color: { 
-        background: "#74b9ff", 
-        border: "#0984e3",
-        highlight: {
-          background: "#5faef7",
-          border: "#0770c7"
-        }
-      },
+      color: { background: "#74b9ff", border: "#0984e3" },
       shape: "box",
-      margin: 15,
     },
     flow: {
-      color: { 
-        background: "#ffeaa7", 
-        border: "#fdcb6e",
-        highlight: {
-          background: "#ffe082",
-          border: "#ffb74d"
-        }
-      },
+      color: { background: "#ffeaa7", border: "#fdcb6e" },
       shape: "triangle",
-      margin: 15,
     },
   },
-  interaction: {
-    hover: true,
-    hoverConnectedEdges: true,
-    selectConnectedEdges: false,
-    tooltipDelay: 300,
-    zoomView: true,
-    dragView: true
-  }
 };
 
-// Improved edge curvature calculation with better distribution
-function calculateEdgeCurvature(fromId: string, toId: string, allEdges: any[], edgeIndex: number): number {
-  // Find all edges between the same nodes (in both directions)
-  const relatedEdges = allEdges.filter(edge => 
-    (edge.from === fromId && edge.to === toId) || 
-    (edge.from === toId && edge.to === fromId)
-  );
-  
-  const totalEdges = relatedEdges.length;
-  
-  if (totalEdges === 1) {
-    return 0; // No curvature for single edges
-  }
-  
-  // Improved curvature calculation for better visual distribution
-  const baseRoundness = 0.2;
-  const maxRoundness = 1.0;
-  const step = (maxRoundness - baseRoundness) / Math.max(totalEdges - 1, 1);
-  
-  // Distribute edges symmetrically around center
-  const centerIndex = (totalEdges - 1) / 2;
-  const offset = edgeIndex - centerIndex;
-  
-  // Apply alternating positive/negative curvature for better separation
-  const curvature = baseRoundness + Math.abs(offset) * step;
-  return offset > 0 ? curvature : -curvature;
-}
-
-// Enhanced intelligent edge routing with performance optimization
-function applyIntelligentEdgeRouting(edges: any[]): any[] {
-  const edgeGroups = new Map<string, any[]>();
-  
-  // Group edges by node pairs
-  edges.forEach(edge => {
-    const key = [edge.from, edge.to].sort().join('-');
-    if (!edgeGroups.has(key)) {
-      edgeGroups.set(key, []);
-    }
-    edgeGroups.get(key)!.push(edge);
-  });
-  
-  // Apply different curvatures for each group
-  const processedEdges: any[] = [];
-  
-  edgeGroups.forEach((groupEdges) => {
-    groupEdges.forEach((edge, index) => {
-      const curvature = calculateEdgeCurvature(edge.from, edge.to, groupEdges, index);
-      
-      processedEdges.push({
-        ...edge,
-        smooth: {
-          enabled: Math.abs(curvature) > 0.01, // Only enable smooth for curved edges
-          type: "dynamic",
-          roundness: curvature
-        }
-      });
-    });
-  });
-  
-  return processedEdges;
-}
-
-// Optimized edge repositioning with debouncing
-function repositionConnectedEdges(network: NetworkWithBody, movedNodeId: string) {
-  try {
-    const allEdges = network.body.data.edges.get();
-    const connectedEdges = allEdges.filter((edge: any) => 
-      edge.from === movedNodeId || edge.to === movedNodeId
-    );
-
-    if (connectedEdges.length === 0) return;
-
-    // Group edges by node pairs
-    const edgeGroups = new Map<string, any[]>();
-    
-    connectedEdges.forEach((edge: any) => {
-      const key = [edge.from, edge.to].sort().join('-');
-      if (!edgeGroups.has(key)) {
-        edgeGroups.set(key, []);
-      }
-      edgeGroups.get(key)!.push(edge);
-    });
-
-    // Reposition each group with improved curvatures
-    const updatedEdges: any[] = [];
-    
-    edgeGroups.forEach((groupEdges) => {
-      groupEdges.forEach((edge: any, index: number) => {
-        const curvature = calculateEdgeCurvature(edge.from, edge.to, groupEdges, index);
-        
-        updatedEdges.push({
-          ...edge,
-          smooth: {
-            enabled: Math.abs(curvature) > 0.01,
-            type: "dynamic",
-            roundness: curvature
-          }
-        });
-      });
-    });
-
-    // Batch update for better performance
-    if (updatedEdges.length > 0) {
-      network.body.data.edges.update(updatedEdges);
-    }
-  } catch (error) {
-    console.error("Error repositioning connected edges:", error);
-  }
-}
-
-// Enhanced data transformation with better error handling
 function transformData(data: any) {
   const result: any = {};
 
-  if (!Array.isArray(data)) {
-    console.warn("transformData received non-array data:", data);
-    return result;
-  }
-
   data.forEach((row: any) => {
-    if (!row || typeof row !== 'object') {
-      console.warn("Invalid row data:", row);
-      return;
-    }
-
     for (const key in row) {
       const item = row[key];
-      if (!item || !item.elementId) continue;
-
       const {
         elementId,
-        properties = {},
+        properties,
         labels,
         type,
         startNodeElementId,
         endNodeElementId,
       } = item;
 
-      // Enhanced property cleaning with better JSON parsing
+      if (!elementId) continue;
+
       const cleanedProperties = Object.fromEntries(
         Object.entries(properties).map(([k, v]) => {
-          if (typeof v === "string" && v.trim()) {
+          if (typeof v === "string") {
             try {
               const parsed = JSON.parse(v);
+
               if (Array.isArray(parsed)) {
-                // Handle empty arrays and filter out invalid entries
-                if (parsed.length === 0 || (parsed.length === 1 && parsed[0] === "[]")) {
+                // Se array vuoto
+                if (
+                  parsed.length === 0 ||
+                  (parsed.length === 1 && parsed[0] === "[]")
+                ) {
                   return [k, ""];
                 }
-                // Clean and join array values
-                const cleanArray = parsed
-                  .filter(item => item !== null && item !== undefined && item !== "")
-                  .map(item => String(item).trim())
-                  .filter(item => item.length > 0);
-                return [k, cleanArray.join(", ")];
+                // Se array con valori
+                return [k, parsed.join(", ")];
               }
             } catch (e) {
-              // Not JSON, keep as string
+              // Non è un JSON parsabile, continua
             }
           }
 
-          if (Array.isArray(v)) {
-            return [k, v.length > 0 ? v.join(", ") : ""];
+          if (Array.isArray(v) && v.length === 0) {
+            return [k, ""];
           }
 
-          return [k, v ?? ""];
+          return [k, v];
         })
       );
 
       result[elementId] = {
-        ...(labels && labels.length > 0 ? { labels: labels[0] } : {}),
+        ...(labels ? { labels: labels[0] } : {}),
         ...(type ? { type } : {}),
-        ...(startNodeElementId ? { initiator_application: startNodeElementId } : {}),
+        ...(startNodeElementId
+          ? { initiator_application: startNodeElementId }
+          : {}),
         ...(endNodeElementId ? { target_application: endNodeElementId } : {}),
         ...cleanedProperties,
       };
@@ -345,33 +167,23 @@ function transformData(data: any) {
   return result;
 }
 
-// Enhanced tooltip creation with better formatting
 function createNodeTooltip(properties: Record<string, any>): string {
   const excludedFields = ["elementId", "labels"];
   const fields = Object.entries(properties)
-    .filter(([key, value]) =>
-      !excludedFields.includes(key) &&
-      value !== null &&
-      value !== "" &&
-      value !== undefined
+    .filter(
+      ([key]) =>
+        !excludedFields.includes(key) &&
+        properties[key] !== null &&
+        properties[key] !== ""
     )
     .map(([key, value]) => {
-      const formattedKey = formatKey(key);
       if (Array.isArray(value)) {
-        return `<strong>${formattedKey}</strong>: ${value.join(", ")}`;
+        return `<strong>${formatKey(key)}</strong>: ${value.join(", ")}`;
       }
-      // Truncate long values for better tooltip display
-      const displayValue = String(value).length > 100 
-        ? String(value).substring(0, 100) + "..." 
-        : String(value);
-      return `<strong>${formattedKey}</strong>: ${displayValue}`;
+      return `<strong>${formatKey(key)}</strong>: ${value}`;
     });
 
-  if (fields.length === 0) {
-    return `<div style="padding: 8px;">No additional information available</div>`;
-  }
-
-  return `<div style="max-width: 350px; padding: 12px; background: rgba(255,255,255,0.98); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 13px; line-height: 1.4;">
+  return `<div style="max-width: 300px; padding: 8px;">
     ${fields.join("<br>")}
   </div>`;
 }
@@ -382,19 +194,15 @@ function createEdgeTooltip(properties: Record<string, any>): string {
   }
 
   const fields = Object.entries(properties)
-    .filter(([_, value]) => value !== null && value !== "" && value !== undefined)
+    .filter(([_, value]) => value !== null && value !== "")
     .map(([key, value]) => {
-      const formattedKey = formatKey(key);
       if (Array.isArray(value)) {
-        return `<strong>${formattedKey}</strong>: ${value.join(", ")}`;
+        return `<strong>${formatKey(key)}</strong>: ${value.join(", ")}`;
       }
-      const displayValue = String(value).length > 80 
-        ? String(value).substring(0, 80) + "..." 
-        : String(value);
-      return `<strong>${formattedKey}</strong>: ${displayValue}`;
+      return `<strong>${formatKey(key)}</strong>: ${value}`;
     });
 
-  return `<div style="max-width: 300px; padding: 12px; background: rgba(255,255,255,0.98); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 13px; line-height: 1.4;">
+  return `<div style="max-width: 300px; padding: 8px;">
     ${fields.join("<br>")}
   </div>`;
 }
@@ -434,91 +242,77 @@ export function NetworkGraph() {
     data: {},
     type: "",
   });
-  const [appLabels, setAppLabels] = useState<string[]>([]);
-  const [flowLabels, setFlowLabels] = useState<string[]>([]);
+  const [appLabels, setAppLabels] = useState([]);
+  const [flowLabels, setFlowLabels] = useState([]);
 
-  // Enhanced query results handler with better error handling
   const handleQueryResults = useCallback((results: any[]) => {
-    try {
-      if (!Array.isArray(results)) {
-        console.error("Invalid query results format:", results);
-        toast.error("Invalid query results format");
-        return;
+    const nodes = new Map();
+    const edges: any = [];
+
+    //console.log("RESULTS ",results)
+    setDataTransformed(transformData(results));
+
+    results.forEach((record) => {
+      const nodeA = record.a;
+      const nodeB = record.b;
+      const relationship = record.e;
+
+      if (nodeA && !nodes.has(nodeA.elementId)) {
+        const label =
+          nodeA.properties.name || nodeA.properties.nickname || "Unnamed";
+        nodes.set(nodeA.elementId, {
+          id: nodeA.elementId,
+          label: label,
+          title: createNodeTooltip(nodeA.properties),
+          group: nodeA.labels[0].toLowerCase(),
+        });
       }
 
-      const nodes = new Map();
-      const edges: any = [];
+      if (nodeB && !nodes.has(nodeB.elementId)) {
+        const label =
+          nodeB.properties.name || nodeB.properties.nickname || "Unnamed";
+        nodes.set(nodeB.elementId, {
+          id: nodeB.elementId,
+          label: label,
+          title: createNodeTooltip(nodeB.properties),
+          group: nodeB.labels[0].toLowerCase(),
+        });
+      }
 
-      const transformedData = transformData(results);
-      setDataTransformed(transformedData);
+      if (
+        relationship &&
+        relationship.startNodeElementId &&
+        relationship.endNodeElementId
+      ) {
+        edges.push({
+          id: relationship.elementId,
+          from: relationship.startNodeElementId,
+          to: relationship.endNodeElementId,
+          label: relationship.properties?.name || relationship.type,
+          arrows: "to",
+          title: createEdgeTooltip(relationship.properties),
+        });
+      }
+    });
 
-      results.forEach((record) => {
-        try {
-          const nodeA = record.a;
-          const nodeB = record.b;
-          const relationship = record.e;
-
-          // Enhanced node processing with validation
-          if (nodeA && nodeA.elementId && !nodes.has(nodeA.elementId)) {
-            const label = nodeA.properties?.name || 
-                         nodeA.properties?.nickname || 
-                         `Node ${nodeA.elementId.slice(-8)}`;
-            nodes.set(nodeA.elementId, {
-              id: nodeA.elementId,
-              label: label,
-              title: createNodeTooltip(nodeA.properties || {}),
-              group: nodeA.labels?.[0]?.toLowerCase() || "default",
-            });
-          }
-
-          if (nodeB && nodeB.elementId && !nodes.has(nodeB.elementId)) {
-            const label = nodeB.properties?.name || 
-                         nodeB.properties?.nickname || 
-                         `Node ${nodeB.elementId.slice(-8)}`;
-            nodes.set(nodeB.elementId, {
-              id: nodeB.elementId,
-              label: label,
-              title: createNodeTooltip(nodeB.properties || {}),
-              group: nodeB.labels?.[0]?.toLowerCase() || "default",
-            });
-          }
-
-          // Enhanced relationship processing
-          if (relationship && 
-              relationship.elementId &&
-              relationship.startNodeElementId && 
-              relationship.endNodeElementId) {
-            edges.push({
-              id: relationship.elementId,
-              from: relationship.startNodeElementId,
-              to: relationship.endNodeElementId,
-              label: relationship.properties?.name || relationship.type || "Connection",
-              arrows: "to",
-              title: createEdgeTooltip(relationship.properties || {}),
-            });
-          }
-        } catch (error) {
-          console.error("Error processing record:", record, error);
-        }
-      });
-
-      // Apply intelligent edge routing
-      const processedEdges = applyIntelligentEdgeRouting(edges);
-
-      setGraphData({
-        nodes: Array.from(nodes.values()),
-        edges: processedEdges,
-      });
-    } catch (error) {
-      console.error("Error in handleQueryResults:", error);
-      toast.error("Error processing query results");
-    }
+    setGraphData({
+      nodes: Array.from(nodes.values()),
+      edges: edges,
+    });
   }, []);
 
   const handleApplicationSubmit = async (data: any) => {
     try {
       const transformedData = {
         ...data,
+        /*internal_application_specialists: data.internal_application_specialists ? JSON.stringify(data.internal_application_specialists.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        business_partner_business_contacts: data.business_partner_business_contacts ? JSON.stringify(data.business_partner_business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        business_contacts: data.business_contacts ? JSON.stringify(data.business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        internal_developers: data.internal_developers ? JSON.stringify(data.internal_developers.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        ams_contacts_email: data.ams_contacts_email ? JSON.stringify(data.ams_contacts_email.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        ams_contact_phone: data.ams_contact_phone ? JSON.stringify(data.ams_contact_phone.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        smes_factory: data.smes_factory ? JSON.stringify(data.smes_factory.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",*/
         ams_contact_phone: data.ams_contact_phone || "",
         ams_expire_date: data.ams_expire_date || null,
         ams_supplier: data.ams_supplier || "",
@@ -539,9 +333,11 @@ export function NetworkGraph() {
     try {
       const transformedData = {
         ...data,
+        //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         release_date: data.release_date || null,
       };
 
+      //console.log("Data -> ", transformedData)
       await handleSaveFlow(transformedData);
     } catch (error) {
       console.error("Error transforming data:", error);
@@ -553,9 +349,8 @@ export function NetworkGraph() {
     if (!data) return;
     setIsLoading(true);
 
-    try {
-      if (Object.keys(applicationData).length === 0) {
-        const result = await saveApplication(data);
+    if (Object.keys(applicationData).length === 0) {
+      saveApplication(data).then((result) => {
         if (result && result.length > 0) {
           const newNode = result[0].a;
 
@@ -584,30 +379,27 @@ export function NetworkGraph() {
         } else {
           toast.error("Failed to save application");
         }
-      } else {
-        const result = await editApplication(data);
+      });
+    } else {
+      editApplication(data).then((result) => {
         if (result && result.length > 0) {
           toast.success("Application edited successfully");
         } else {
           toast.error("Failed to edit application");
         }
-      }
-    } catch (error) {
-      console.error("Error saving application:", error);
-      toast.error("Failed to save application");
-    } finally {
-      setIsApplicationDialogOpen(false);
-      setIsLoading(false);
+      });
     }
+
+    setIsApplicationDialogOpen(false);
+    setIsLoading(false);
   };
 
   const handleSaveFlow = async (data: any) => {
     if (!data) return;
     setIsLoading(true);
 
-    try {
-      if (Object.keys(flowData).length === 0) {
-        const result = await saveFlow(data);
+    if (Object.keys(flowData).length === 0) {
+      saveFlow(data).then((result) => {
         if (result && result.length > 0) {
           const newNode = result[0].f;
 
@@ -622,14 +414,8 @@ export function NetworkGraph() {
             };
 
             const network = networkRef.current as NetworkWithBody;
-            
-            // Apply intelligent routing for the new edge
-            const allCurrentEdges = network.body.data.edges.get();
-            const processedEdges = applyIntelligentEdgeRouting([...allCurrentEdges, edgeData]);
-            const newEdgeProcessed = processedEdges.find(edge => edge.id === edgeData.id);
-            
-            network.body.data.edges.add(newEdgeProcessed || edgeData);
-            currentDataRef.current.edges.set(newNode.elementId, newEdgeProcessed || edgeData);
+            network.body.data.edges.add(edgeData);
+            currentDataRef.current.edges.set(newNode.elementId, edgeData);
           }
 
           const newApp = transformData(result);
@@ -644,21 +430,19 @@ export function NetworkGraph() {
         } else {
           toast.error("Failed to save flow");
         }
-      } else {
-        const result = await editFlow(data);
+      });
+    } else {
+      editFlow(data).then((result) => {
         if (result && result.length > 0) {
           toast.success("Flow edited successfully");
         } else {
           toast.error("Failed to edit flow");
         }
-      }
-    } catch (error) {
-      console.error("Error saving flow:", error);
-      toast.error("Failed to save flow");
-    } finally {
-      setIsFlowDialogOpen(false);
-      setIsLoading(false);
+      });
     }
+
+    setIsFlowDialogOpen(false);
+    setIsLoading(false);
   };
 
   const handleDeleteButton = async (data: any) => {
@@ -669,9 +453,8 @@ export function NetworkGraph() {
 
     setIsLoading(true);
 
-    try {
-      if (type === "flow") {
-        const result = await deleteFlow(data);
+    if (type == "flow") {
+      deleteFlow(data).then((result) => {
         if (result) {
           toast.success("Flow deleted successfully");
           if (networkRef.current) {
@@ -680,8 +463,9 @@ export function NetworkGraph() {
         } else {
           toast.error("Error deleting the flow");
         }
-      } else if (type === "application") {
-        const result = await deleteApplication(data);
+      });
+    } else if (type == "application") {
+      deleteApplication(data).then((result) => {
         if (result) {
           toast.success("Application deleted successfully");
           if (networkRef.current) {
@@ -690,14 +474,11 @@ export function NetworkGraph() {
         } else {
           toast.error("Error deleting the application");
         }
-      }
-    } catch (error) {
-      console.error("Error deleting:", error);
-      toast.error(`Error deleting the ${type}`);
-    } finally {
-      setIsConfirmModalOpen({ show: false, data: {}, type: "" });
-      setIsLoading(false);
+      });
     }
+
+    setIsConfirmModalOpen({ show: false, data: {}, type: "" });
+    setIsLoading(false);
   };
 
   const togglePhysics = useCallback(() => {
@@ -709,36 +490,11 @@ export function NetworkGraph() {
       networkRef.current.setOptions({
         physics: {
           enabled: newPhysicsState,
-          barnesHut: {
-            gravitationalConstant: -4000,
-            centralGravity: 0.1,
-            springLength: 300,
-            springConstant: 0.04,
-            damping: 0.95,
-            avoidOverlap: 1
-          },
-          maxVelocity: 30,
-          minVelocity: 0.1,
-          stabilization: {
-            enabled: newPhysicsState,
-            iterations: 1500,
-            updateInterval: 50,
-            onlyDynamicEdges: false,
-            fit: true
-          },
-          timestep: 0.5
         },
       });
-
-      if (newPhysicsState) {
-        toast.success("Physics enabled - Graph will stabilize");
-      } else {
-        toast.success("Physics disabled - Graph is now static");
-      }
     }
   }, [isPhysicsEnabled]);
 
-  // Enhanced node expansion with better error handling and performance
   const expandNode = async (nodeId: string) => {
     if (!networkRef.current) return;
     const network = networkRef.current as NetworkWithBody;
@@ -765,16 +521,11 @@ export function NetworkGraph() {
         new AbortController().signal
       );
 
-      if (!results || results.length === 0) {
-        toast.info("No connected nodes found");
-        return;
-      }
-
       const newNodes: any = [];
       const newEdges: any = [];
 
-      const radius = 350;
-      const angleStep = (2 * Math.PI) / Math.max(results.length, 1);
+      const radius = 200;
+      const angleStep = (2 * Math.PI) / results.length;
 
       const newData = transformData(results);
 
@@ -784,48 +535,44 @@ export function NetworkGraph() {
       }));
 
       results.forEach((record: any, index: any) => {
-        try {
-          const nodeA = record.a;
-          const nodeB = record.b;
-          const relationship = record.e;
+        const nodeA = record.a;
+        const nodeB = record.b;
+        const relationship = record.e;
 
-          [nodeA, nodeB].forEach((node) => {
-            if (node && node.elementId && !currentDataRef.current.nodes.has(node.elementId)) {
-              const angle = angleStep * index;
-              const x = sourceNodePosition.x + radius * Math.cos(angle);
-              const y = sourceNodePosition.y + radius * Math.sin(angle);
+        [nodeA, nodeB].forEach((node) => {
+          if (node && !currentDataRef.current.nodes.has(node.elementId)) {
+            const angle = angleStep * index;
+            const x = sourceNodePosition.x + radius * Math.cos(angle);
+            const y = sourceNodePosition.y + radius * Math.sin(angle);
 
-              const nodeData = {
-                id: node.elementId,
-                label: node.properties?.name || 
-                       node.properties?.nickname || 
-                       `Node ${node.elementId.slice(-8)}`,
-                title: createNodeTooltip(node.properties || {}),
-                group: node.labels?.[0]?.toLowerCase() || "default",
-                x: x,
-                y: y,
-              };
-              currentDataRef.current.nodes.set(node.elementId, nodeData);
-              newNodes.push(nodeData);
-            }
-          });
-
-          if (relationship && 
-              relationship.elementId &&
-              !currentDataRef.current.edges.has(relationship.elementId)) {
-            const edgeData = {
-              id: relationship.elementId,
-              from: relationship.startNodeElementId,
-              to: relationship.endNodeElementId,
-              label: relationship.properties?.name || relationship.type || "Connection",
-              arrows: "to",
-              title: createEdgeTooltip(relationship.properties || {}),
+            const nodeData = {
+              id: node.elementId,
+              label:
+                node.properties.name || node.properties.nickname || "Unnamed",
+              title: createNodeTooltip(node.properties),
+              group: node.labels[0].toLowerCase(),
+              x: x,
+              y: y,
             };
-            currentDataRef.current.edges.set(relationship.elementId, edgeData);
-            newEdges.push(edgeData);
+            currentDataRef.current.nodes.set(node.elementId, nodeData);
+            newNodes.push(nodeData);
           }
-        } catch (error) {
-          console.error("Error processing expansion record:", record, error);
+        });
+
+        if (
+          relationship &&
+          !currentDataRef.current.edges.has(relationship.elementId)
+        ) {
+          const edgeData = {
+            id: relationship.elementId,
+            from: relationship.startNodeElementId,
+            to: relationship.endNodeElementId,
+            label: relationship.properties.name || relationship.type,
+            arrows: "to",
+            title: createEdgeTooltip(relationship.properties),
+          };
+          currentDataRef.current.edges.set(relationship.elementId, edgeData);
+          newEdges.push(edgeData);
         }
       });
 
@@ -833,16 +580,7 @@ export function NetworkGraph() {
         network.body.data.nodes.add(newNodes);
       }
       if (newEdges.length > 0) {
-        // Apply intelligent routing for new edges
-        const allCurrentEdges = Array.from(currentDataRef.current.edges.values());
-        const processedNewEdges = applyIntelligentEdgeRouting([...allCurrentEdges, ...newEdges]);
-        
-        // Update only the new edges with intelligent routing
-        const finalNewEdges = processedNewEdges.filter(edge => 
-          newEdges.some(newEdge => newEdge.id === edge.id)
-        );
-        
-        network.body.data.edges.add(finalNewEdges);
+        network.body.data.edges.add(newEdges);
       }
 
       if (newNodes.length > 0 || newEdges.length > 0) {
@@ -850,25 +588,14 @@ export function NetworkGraph() {
           if (networkRef.current) {
             networkRef.current.setOptions({
               physics: {
-                enabled: physicsStateRef.current,
-                barnesHut: {
-                  gravitationalConstant: -4000,
-                  centralGravity: 0.1,
-                  springLength: 300,
-                  springConstant: 0.04,
-                  damping: 0.95,
-                  avoidOverlap: 1
-                },
-                maxVelocity: 30,
-                minVelocity: 0.1,
+                enabled: isPhysicsEnabled,
                 stabilization: {
-                  enabled: physicsStateRef.current,
-                  iterations: 800,
+                  enabled: true,
+                  iterations: 50,
                   updateInterval: 25,
                   onlyDynamicEdges: false,
-                  fit: false
+                  fit: false,
                 },
-                timestep: 0.5
               },
             });
           }
@@ -876,13 +603,11 @@ export function NetworkGraph() {
       }
     } catch (error) {
       console.error("Error expanding node:", error);
-      toast.error("Failed to expand node");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Enhanced network initialization with better error handling
   const initializeNetwork = useCallback(() => {
     if (!containerRef.current || !graphData) return;
 
@@ -904,113 +629,56 @@ export function NetworkGraph() {
         options
       );
 
-      // Enhanced event listeners with better error handling
-      networkRef.current.on("dragStart", (params) => {
-        try {
-          networkRef.current?.setOptions({ physics: { enabled: false } });
-        } catch (error) {
-          console.error("Error in dragStart:", error);
-        }
+      networkRef.current.on("dragStart", () => {
+        networkRef.current?.setOptions({ physics: { enabled: false } });
       });
 
-      networkRef.current.on("dragging", (params) => {
-        try {
-          if (params.nodes.length > 0) {
-            const draggedNodeId = params.nodes[0];
-            const network = networkRef.current as NetworkWithBody;
-            repositionConnectedEdges(network, draggedNodeId);
-          }
-        } catch (error) {
-          console.error("Error in dragging:", error);
-        }
-      });
-
-      networkRef.current.on("dragEnd", (params) => {
-        try {
-          if (params.nodes.length > 0) {
-            const draggedNodeId = params.nodes[0];
-            const network = networkRef.current as NetworkWithBody;
-            repositionConnectedEdges(network, draggedNodeId);
-          }
-          
-          networkRef.current?.setOptions({
-            physics: { enabled: physicsStateRef.current },
-          });
-        } catch (error) {
-          console.error("Error in dragEnd:", error);
-        }
+      networkRef.current.on("dragEnd", () => {
+        networkRef.current?.setOptions({
+          physics: { enabled: physicsStateRef.current },
+        });
       });
 
       networkRef.current.on("doubleClick", (params) => {
-        try {
-          if (params.nodes.length > 0) {
-            expandNode(params.nodes[0]);
-          }
-        } catch (error) {
-          console.error("Error in doubleClick:", error);
+        if (params.nodes.length > 0) {
+          expandNode(params.nodes[0]);
         }
       });
 
+      //Visualizzare la modale di modifica
       networkRef.current.on("oncontext", (params) => {
-        try {
-          params.event.preventDefault();
-          if (params.nodes.length > 0) {
-            const nodeId = params.nodes[0];
-            const nodeData = dataTransformedRef.current[nodeId];
-            if (nodeData) {
-              nodeData["elementId"] = nodeId;
-              nodeData["type"] = "application";
-              const appData = {
-                nodeData,
-                hasRelationship: params.edges.length > 0,
-              };
-              setApplicationData(appData);
-              setIsApplicationDialogOpen(true);
-            }
-          }
+        params.event.preventDefault();
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          const nodeData = dataTransformedRef.current[nodeId];
+          nodeData["elementId"] = nodeId;
+          nodeData["type"] = "application";
+          const appData = {
+            nodeData,
+            hasRelationship: params.edges.length > 0 ? true : false,
+          };
+          setApplicationData(appData);
+          setIsApplicationDialogOpen(true);
+        }
 
-          if (params.edges.length > 0 && params.nodes.length === 0) {
-            const edgeId = params.edges[0];
-            const edgeData = dataTransformedRef.current[edgeId];
-            if (edgeData) {
-              edgeData["elementId"] = edgeId;
-              setFlowData(edgeData);
-              setIsFlowDialogOpen(true);
-            }
-          }
-        } catch (error) {
-          console.error("Error in oncontext:", error);
+        if (params.edges.length > 0 && params.nodes.length === 0) {
+          const edgeId = params.edges[0];
+          const edgeData = dataTransformedRef.current[edgeId];
+          edgeData["elementId"] = edgeId;
+          setFlowData(edgeData);
+          //console.log('Clicked edge data:', edgeData);
+          setIsFlowDialogOpen(true);
         }
       });
 
       networkRef.current.once("afterDrawing", () => {
-        try {
-          networkRef.current?.fit();
-        } catch (error) {
-          console.error("Error in afterDrawing:", error);
-        }
+        networkRef.current?.fit();
       });
-
-      // Enhanced stabilization listeners
-      networkRef.current.on("stabilizationProgress", (params) => {
-        const progress = Math.round((params.iterations / params.total) * 100);
-        if (progress % 25 === 0) {
-          console.log(`Stabilization progress: ${progress}%`);
-        }
-      });
-
-      networkRef.current.on("stabilizationIterationsDone", () => {
-        console.log("Network stabilization completed");
-        toast.success("Graph layout stabilized");
-      });
-
     } catch (error) {
       console.error("Error initializing network:", error);
-      toast.error("Failed to initialize network graph");
     }
   }, [graphData]);
 
-  // Enhanced useEffect hooks with better cleanup
   useEffect(() => {
     if (!isApplicationDialogOpen) {
       setApplicationData({});
@@ -1026,14 +694,8 @@ export function NetworkGraph() {
   useEffect(() => {
     const setup = async () => {
       setIsLoading(true);
-      try {
-        await initializeNetwork();
-      } catch (error) {
-        console.error("Error in network setup:", error);
-        toast.error("Failed to setup network");
-      } finally {
-        setIsLoading(false);
-      }
+      await initializeNetwork();
+      setIsLoading(false);
     };
     setup();
   }, [initializeNetwork]);
@@ -1041,95 +703,84 @@ export function NetworkGraph() {
   useEffect(() => {
     return () => {
       if (networkRef.current) {
-        try {
-          networkRef.current.destroy();
-          networkRef.current = null;
-        } catch (error) {
-          console.error("Error destroying network:", error);
-        }
+        networkRef.current.destroy();
+        networkRef.current = null;
       }
     };
   }, []);
 
-  // Enhanced label fetching with better error handling
   useEffect(() => {
-    const fetchLabels = async () => {
-      try {
-        const [appLabelsResult, flowLabelsResult] = await Promise.all([
-          getConnectedApplicationLabels(),
-          getFlowLabels()
-        ]);
-
-        if (appLabelsResult && appLabelsResult.length > 0) {
-          setAppLabels(appLabelsResult);
-        }
-
-        if (flowLabelsResult && flowLabelsResult.length > 0) {
-          setFlowLabels(flowLabelsResult);
-        }
-      } catch (error) {
-        console.error("Error fetching labels:", error);
-        toast.error("Failed to load filter options");
+    getConnectedApplicationLabels().then((result) => {
+      if (result && result.length > 0) {
+        setAppLabels(result);
+      } else {
+        toast.error("Failed to load applications labels");
       }
-    };
+    });
 
-    fetchLabels();
+    getFlowLabels().then((result) => {
+      if (result && result.length > 0) {
+        setFlowLabels(result);
+      } else {
+        toast.error("Failed to load flow labels");
+      }
+    });
   }, []);
 
   useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
-  /* Enhanced Dropdown Management */
+
+  /* Gestione Dropdown */
+
   const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
   const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [initiatorTargetOperator, setInitiatorTargetOperator] = useState<"AND" | "OR">("AND");
+  const [initiatorTargetOperator, setInitiatorTargetOperator] =
+    useState<"AND" | "OR">("AND");
 
-  // Enhanced query building with better validation
   function updateQueryWithFilters(
-    baseQuery: string,
-    initiators: string[],
-    targets: string[],
-    labels: string[],
-    operator: "AND" | "OR"
-  ): string {
-    try {
-      const filters: string[] = [];
+  baseQuery: string,
+  initiators: string[],
+  targets: string[],
+  labels: string[],
+  operator: "AND" | "OR"
+): string {
+  const filters: string[] = [];
 
-      const initiatorParts = initiators.length > 0
-        ? initiators.map((i) => `a.name CONTAINS "${i.replace(/"/g, '\\"')}"`).join(" OR ")
-        : "";
-      const targetParts = targets.length > 0
-        ? targets.map((t) => `b.name CONTAINS "${t.replace(/"/g, '\\"')}"`).join(" OR ")
-        : "";
+  const initiatorParts =
+    initiators.length > 0
+      ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
+      : "";
+  const targetParts =
+    targets.length > 0
+      ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
+      : "";
 
-      if (initiatorParts && targetParts) {
-        filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
-      } else if (initiatorParts) {
-        filters.push(`(${initiatorParts})`);
-      } else if (targetParts) {
-        filters.push(`(${targetParts})`);
-      }
-
-      if (labels.length > 0) {
-        const labelFilter = labels.map(l => `e.labels CONTAINS "${l.replace(/"/g, '\\"')}"`).join(" OR ");
-        filters.push(`(${labelFilter})`);
-      }
-
-      // Enhanced regex for better query parsing
-      const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0]?.trim() || '';
-      const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0]?.trim() || '';
-
-      const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
-
-      return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
-    } catch (error) {
-      console.error("Error building query:", error);
-      return baseQuery; // Return original query on error
-    }
+  if (initiatorParts && targetParts) {
+    filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
+  } else if (initiatorParts) {
+    filters.push(`(${initiatorParts})`);
+  } else if (targetParts) {
+    filters.push(`(${targetParts})`);
   }
+
+  if (labels.length > 0) {
+    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
+    filters.push(`(${labelFilter})`);
+  }
+
+  // Regex per estrarre le parti principali della query
+  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
+  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
+
+  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
+}
+
 
   useEffect(() => {
     setQuery(q =>
@@ -1143,10 +794,12 @@ export function NetworkGraph() {
     );
   }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
 
+  /** */
+
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
       <div className="p-2 border-b flex items-center justify-between">
-        {/* Button group */}
+        {/* Gruppo pulsanti */}
         <div className="flex gap-2">
           <TooltipProvider>
             <Tooltip>
@@ -1155,7 +808,6 @@ export function NetworkGraph() {
                   variant="outline"
                   size="icon"
                   onClick={() => setIsApplicationDialogOpen(true)}
-                  disabled={isLoading}
                 >
                   <AppWindow className="h-4 w-4" />
                 </Button>
@@ -1171,7 +823,6 @@ export function NetworkGraph() {
                   variant="outline"
                   size="icon"
                   onClick={() => setIsFlowDialogOpen(true)}
-                  disabled={isLoading}
                 >
                   <Line className="h-4 w-4" />
                 </Button>
@@ -1187,7 +838,6 @@ export function NetworkGraph() {
                   variant={isPhysicsEnabled ? "default" : "outline"}
                   size="icon"
                   onClick={togglePhysics}
-                  disabled={isLoading}
                 >
                   <Magnet className="h-4 w-4" />
                 </Button>
@@ -1210,7 +860,6 @@ export function NetworkGraph() {
             onClick={() =>
               setInitiatorTargetOperator((op) => (op === "AND" ? "OR" : "AND"))
             }
-            disabled={isLoading}
           >
             {initiatorTargetOperator}
           </Button>
@@ -1274,7 +923,7 @@ export function NetworkGraph() {
           <DialogFooter className="mt-4 w-full">
             <div className="flex w-full justify-between items-center">
               {Object.keys(applicationData).length > 0 &&
-              applicationData.hasRelationship === false ? (
+              applicationData.hasRelationship == false ? (
                 <Button
                   variant="destructive"
                   onClick={() => {
@@ -1285,7 +934,6 @@ export function NetworkGraph() {
                     });
                     setIsApplicationDialogOpen(false);
                   }}
-                  disabled={isLoading}
                 >
                   Delete application
                 </Button>
@@ -1296,7 +944,6 @@ export function NetworkGraph() {
                 <Button
                   variant="outline"
                   onClick={() => setIsApplicationDialogOpen(false)}
-                  disabled={isLoading}
                 >
                   Cancel
                 </Button>
@@ -1344,9 +991,9 @@ export function NetworkGraph() {
                       data: flowData,
                       type: flowData.type,
                     });
+                    console.log(flowData);
                     setIsFlowDialogOpen(false);
                   }}
-                  disabled={isLoading}
                 >
                   Delete flow
                 </Button>
@@ -1357,7 +1004,6 @@ export function NetworkGraph() {
                 <Button
                   variant="outline"
                   onClick={() => setIsFlowDialogOpen(false)}
-                  disabled={isLoading}
                 >
                   Cancel
                 </Button>
