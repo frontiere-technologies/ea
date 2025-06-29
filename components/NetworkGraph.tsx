@@ -75,7 +75,7 @@ const options = {
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: false,
+    enabled: true,
     barnesHut: {
       gravitationalConstant: -2000,
       centralGravity: 0.3,
@@ -872,7 +872,7 @@ export function NetworkGraph() {
           <MultiselectDropdown
             options={appLabels || []}
             onChange={setSelectedInitiators}
-            placeholder="Initiator Application"
+            placeholder="Initiator application"
           />
           <Button
             variant="outline"
@@ -885,7 +885,7 @@ export function NetworkGraph() {
           <MultiselectDropdown
             options={appLabels || []}
             onChange={setSelectedTargets}
-            placeholder="Target Application"
+            placeholder="Target application"
           />
           <MultiselectDropdown
             options={flowLabels || []}

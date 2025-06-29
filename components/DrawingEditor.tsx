@@ -573,16 +573,28 @@ function getRelationships(nodeA: string, nodeB: string) {
           isOpen={isSVGCollapseOpen}
           onToggle={(open: boolean) => setIsSVGCollapseOpen(open)}
           footer={(search) => (
-            <a
-              href={`https://fonts.google.com/icons?icon.query=${encodeURIComponent(
-                search
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline text-sm"
-            >
-              Search on Google Icons
-            </a>
+            <div className="space-y-2">
+              <a
+                href={`https://fonts.google.com/icons?icon.query=${encodeURIComponent(
+                  search
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-blue-600 hover:underline text-sm"
+              >
+                Search on Google Icons
+              </a>
+              <a
+                href={`https://www.svgrepo.com/vectors/${encodeURIComponent(
+                  search
+                )}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-blue-600 hover:underline text-sm"
+              >
+                Search on SVG Repo
+              </a>
+            </div>
           )}
         />
       </div>
