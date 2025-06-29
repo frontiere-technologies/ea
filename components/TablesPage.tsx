@@ -87,9 +87,9 @@ const appColumns = [
 
 const flowColumns = [
   "flow_id",
+  "name",
   "initiator",
   "target",
-  "name",
   "description",
   "communication_mode",
   "intent",
