@@ -75,7 +75,7 @@ const options = {
     arrows: { to: { enabled: true, scaleFactor: 0.5 } },
   },
   physics: {
-    enabled: false,
+    enabled: true,
     barnesHut: {
       gravitationalConstant: -2000,
       centralGravity: 0.3,
