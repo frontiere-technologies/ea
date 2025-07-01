@@ -32,8 +32,8 @@ import {
   getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
-  getFlowLabels, 
-  getApplicationLabels
+  getFlowLabels,
+  getApplicationLabels,
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
 
@@ -94,10 +94,10 @@ const options = {
     improvedLayout: true,
   },
   groups: {
-    application: {
+    /*application: {
       color: { background: "#74b9ff", border: "#0984e3" },
       shape: "box",
-    },
+    },*/
     flow: {
       color: { background: "#ffeaa7", border: "#fdcb6e" },
       shape: "triangle",
@@ -247,43 +247,74 @@ export function NetworkGraph() {
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
-    const edges: any = [];
+    const edges: any[] = [];
 
-    //console.log("RESULTS ",results)
     setDataTransformed(transformData(results));
+
+    const criticalityColorMap: Record<
+      string,
+      { background: string; border: string }
+    > = {
+      critical: { background: "#e74c3c", border: "#c0392b" },
+      high: { background: "#e67e22", border: "#d35400" },
+      medium: { background: "#f1c40f", border: "#f39c12" },
+      low: { background: "#2ecc71", border: "#27ae60" },
+      unknown: { background: "#bdc3c7", border: "#7f8c8d" },
+    };
+
+    const getCriticalityColor = (criticality: string | undefined) =>
+      criticalityColorMap[criticality?.toLowerCase() || "unknown"];
+
+    const createNode = (node: any) => {
+      const nodeId = node.elementId;
+      if (nodes.has(nodeId)) return;
+
+      const label =
+        node.properties.name || node.properties.nickname || "Unnamed";
+      const nodeType = node.labels[0]?.toLowerCase() || "generic";
+      const criticality = node.properties?.criticality;
+      const customColor =
+        nodeType === "application"
+          ? getCriticalityColor(criticality)
+          : undefined;
+
+      nodes.set(nodeId, {
+        id: nodeId,
+        label,
+        title: createNodeTooltip(node.properties),
+        group: nodeType,
+        ...(customColor && {
+          color: {
+            background: customColor.background,
+            border: customColor.border,
+            highlight: {
+              background: customColor.background,
+              border: customColor.border,
+            },
+            hover: {
+              background: customColor.background,
+              border: customColor.border,
+            },
+          },
+        }),
+      });
+    };
 
     results.forEach((record) => {
       const nodeA = record.a;
       const nodeB = record.b;
       const relationship = record.e;
 
-      if (nodeA && !nodes.has(nodeA.elementId)) {
-        const label =
-          nodeA.properties.name || nodeA.properties.nickname || "Unnamed";
-        nodes.set(nodeA.elementId, {
-          id: nodeA.elementId,
-          label: label,
-          title: createNodeTooltip(nodeA.properties),
-          group: nodeA.labels[0].toLowerCase(),
-        });
-      }
-
-      if (nodeB && !nodes.has(nodeB.elementId)) {
-        const label =
-          nodeB.properties.name || nodeB.properties.nickname || "Unnamed";
-        nodes.set(nodeB.elementId, {
-          id: nodeB.elementId,
-          label: label,
-          title: createNodeTooltip(nodeB.properties),
-          group: nodeB.labels[0].toLowerCase(),
-        });
-      }
+      if (nodeA) createNode(nodeA);
+      if (nodeB) createNode(nodeB);
 
       if (
         relationship &&
         relationship.startNodeElementId &&
         relationship.endNodeElementId
       ) {
+        const isApiGateway = relationship.properties?.api_gateway === true;
+
         edges.push({
           id: relationship.elementId,
           from: relationship.startNodeElementId,
@@ -291,13 +322,18 @@ export function NetworkGraph() {
           label: relationship.properties?.name || relationship.type,
           arrows: "to",
           title: createEdgeTooltip(relationship.properties),
+          color: {
+            color: isApiGateway ? "green" : "orange",
+            highlight: isApiGateway ? "green" : "orange",
+            hover: isApiGateway ? "green" : "orange",
+          },
         });
       }
     });
 
     setGraphData({
       nodes: Array.from(nodes.values()),
-      edges: edges,
+      edges,
     });
   }, []);
 
@@ -750,59 +786,62 @@ export function NetworkGraph() {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
-
   /* Gestione Dropdown */
 
   const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
   const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [initiatorTargetOperator, setInitiatorTargetOperator] =
-    useState<"AND" | "OR">("AND");
+  const [initiatorTargetOperator, setInitiatorTargetOperator] = useState<
+    "AND" | "OR"
+  >("AND");
 
   function updateQueryWithFilters(
-  baseQuery: string,
-  initiators: string[],
-  targets: string[],
-  labels: string[],
-  operator: "AND" | "OR"
-): string {
-  const filters: string[] = [];
+    baseQuery: string,
+    initiators: string[],
+    targets: string[],
+    labels: string[],
+    operator: "AND" | "OR"
+  ): string {
+    const filters: string[] = [];
 
-  const initiatorParts =
-    initiators.length > 0
-      ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
-      : "";
-  const targetParts =
-    targets.length > 0
-      ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
-      : "";
+    const initiatorParts =
+      initiators.length > 0
+        ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
+        : "";
+    const targetParts =
+      targets.length > 0
+        ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
+        : "";
 
-  if (initiatorParts && targetParts) {
-    filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
-  } else if (initiatorParts) {
-    filters.push(`(${initiatorParts})`);
-  } else if (targetParts) {
-    filters.push(`(${targetParts})`);
+    if (initiatorParts && targetParts) {
+      filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
+    } else if (initiatorParts) {
+      filters.push(`(${initiatorParts})`);
+    } else if (targetParts) {
+      filters.push(`(${targetParts})`);
+    }
+
+    if (labels.length > 0) {
+      const labelFilter = labels
+        .map((l) => `e.labels CONTAINS "${l}"`)
+        .join(" OR ");
+      filters.push(`(${labelFilter})`);
+    }
+
+    // Regex per estrarre le parti principali della query
+    const matchPart =
+      baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || "";
+    const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || "";
+
+    const whereClause =
+      filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+
+    return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
   }
-
-  if (labels.length > 0) {
-    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
-    filters.push(`(${labelFilter})`);
-  }
-
-  // Regex per estrarre le parti principali della query
-  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
-  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
-
-  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
-
-  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
-}
-
 
   useEffect(() => {
-    setQuery(q =>
+    setQuery((q) =>
       updateQueryWithFilters(
         q,
         selectedInitiators,
@@ -811,7 +850,12 @@ export function NetworkGraph() {
         initiatorTargetOperator
       )
     );
-  }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
+  }, [
+    selectedInitiators,
+    selectedTargets,
+    selectedLabels,
+    initiatorTargetOperator,
+  ]);
 
   /** */
 
