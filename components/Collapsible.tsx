@@ -1,3 +1,4 @@
+// components/Collapsible.tsx
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -9,9 +10,10 @@ import {
 import { ChevronDown, GripVertical } from "lucide-react";
 
 interface DrawingItem {
-  id?: string | number;
+  id: string | number; // Ho rimosso '?' perché ora lo garantiamo
   name: string;
   svg?: string | null;
+  type?: "shape" | "label" | "image"; // <--- AGGIUNTA
   [key: string]: any;
 }
 
@@ -24,7 +26,6 @@ interface DrawingCollapsibleProps {
   width?: string | number;
   height?: string | number;
   footer?: (search: string) => React.ReactNode;
-
 }
 
 export function DrawingCollapsible({
@@ -35,7 +36,7 @@ export function DrawingCollapsible({
   type = "text",
   width = "250px",
   height,
-  footer
+  footer,
 }: DrawingCollapsibleProps) {
   const [search, setSearch] = useState("");
   const [list, setList] = useState(items);
@@ -46,10 +47,13 @@ export function DrawingCollapsible({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    // Assicurati che gli item passati siano sempre puliti qui se la pulizia non è garantita a monte
+    // (ma l'abbiamo fatta a monte in DrawingEditor.tsx, quindi questa riga è principalmente per sincronia)
     setList(items);
   }, [items]);
 
   const filteredItems = list.filter((item) =>
+    // Ora 'item.name' è garantito essere una stringa grazie alla trasformazione in DrawingEditor.tsx
     item.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -64,6 +68,7 @@ export function DrawingCollapsible({
       id: item.id,
       name: item.name,
       svg: item.svg || null,
+      type: item.type || "shape", // <--- AGGIUNTA: Includi il tipo di item
     };
     event.dataTransfer.setData(
       "application/json",
@@ -253,7 +258,9 @@ export function DrawingCollapsible({
               </div>
             )}
 
-             {footer && <div className="mt-2 border-t pt-2">{footer(search)}</div>}
+            {footer && (
+              <div className="mt-2 border-t pt-2">{footer(search)}</div>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>

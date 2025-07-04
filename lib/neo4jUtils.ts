@@ -1,4 +1,4 @@
-import { executeQuery } from "./neo4j";
+import { executeQuery } from "./neo4j"; // Assicurati che questo percorso sia corretto
 
 /* ----------------------------Application Management--------------------------- */
 export const getApplications = async () => {
@@ -115,7 +115,7 @@ export const editApplication = async (data: any) => {
               a.notes = $notes,
               a.links_to_sharepoint_documentation = $links_to_sharepoint_documentation
             RETURN a
-        `;
+          `;
 
     const result = await executeQuery(editNodeQuery, data);
 
@@ -166,7 +166,7 @@ export const saveFlow = async (data: any) => {
     const createFlowQuery = `
           MATCH (initiator:Application {application_id: $initiator_application})
           MATCH (target:Application {application_id: $target_application})
-  
+ 
           CREATE (initiator)-[f:flow {
             flow_id: $flow_id,
             name: $name,
@@ -208,7 +208,7 @@ export const editFlow = async (data: any) => {
           MATCH (initiator:Application {application_id: $initiator_application})
           MATCH (target:Application {application_id: $target_application})
           MATCH (initiator)-[f:flow]->(target)
-  
+ 
           SET
             f.name = $name,
             f.description = $description,
@@ -318,5 +318,31 @@ export const getConnectedApplicationLabels = async () => {
     }
   } catch (err) {
     console.error("Error retrieving the connected app labels ", err);
+  }
+};
+
+/* ----------------------------Drawing Specific Queries--------------------------- */
+
+/**
+ * Esegue una query Neo4j per trovare nodi e relazioni basati su una label di flusso.
+ * @param {string} label - La label da cercare nei flussi.
+ * @returns {Promise<any[] | undefined>} Un array di nodi e relazioni, o undefined in caso di errore.
+ */
+export const getFlowGraphByLabel = async (label: string) => { // <--- NUOVA FUNZIONE
+  try {
+    const query = `
+      MATCH (a:Application)-[e:flow]->(b:Application)
+      WHERE e.labels IS NOT NULL AND e.labels CONTAINS "${label}"
+      RETURN a, e, b
+    `;
+
+    const results = await executeQuery(query, {});
+
+    if (results) {
+      return results;
+    }
+  } catch (error) {
+    console.error(`Error fetching graph for label "${label}":`, error);
+    return undefined;
   }
 };
