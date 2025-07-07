@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Network } from "vis-network";
 import { executeQuery } from "@/lib/neo4j";
-import { AppWindow, Link as Line, Magnet } from "lucide-react";
+import { AppWindow, Link as Line, Magnet, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +36,7 @@ import {
   getApplicationLabels,
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import ColorConfigModal from "./ColorConfigModal";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -94,10 +95,10 @@ const options = {
     improvedLayout: true,
   },
   groups: {
-    /*application: {
+    application: {
       color: { background: "#74b9ff", border: "#0984e3" },
       shape: "box",
-    },*/
+    },
     flow: {
       color: { background: "#ffeaa7", border: "#fdcb6e" },
       shape: "triangle",
@@ -244,98 +245,121 @@ export function NetworkGraph() {
   });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
-
-  const handleQueryResults = useCallback((results: any[]) => {
-    const nodes = new Map();
-    const edges: any[] = [];
-
-    setDataTransformed(transformData(results));
-
-    const criticalityColorMap: Record<
-      string,
-      { background: string; border: string }
-    > = {
-      critical: { background: "#e74c3c", border: "#c0392b" },
-      high: { background: "#e67e22", border: "#d35400" },
-      medium: { background: "#f1c40f", border: "#f39c12" },
-      low: { background: "#2ecc71", border: "#27ae60" },
-      unknown: { background: "#bdc3c7", border: "#7f8c8d" },
+  const [isColorConfigOpen, setIsColorConfigOpen] = useState<any>(false);
+  const [colorConfig, setColorConfig] = useState<{
+    Application?: {
+      fieldName: string | null;
+      colorConfig: Record<string, { background: string; border: string }>;
     };
-
-    const getCriticalityColor = (criticality: string | undefined) =>
-      criticalityColorMap[criticality?.toLowerCase() || "unknown"];
-
-    const createNode = (node: any) => {
-      const nodeId = node.elementId;
-      if (nodes.has(nodeId)) return;
-
-      const label =
-        node.properties.name || node.properties.nickname || "Unnamed";
-      const nodeType = node.labels[0]?.toLowerCase() || "generic";
-      const criticality = node.properties?.criticality;
-      const customColor =
-        nodeType === "application"
-          ? getCriticalityColor(criticality)
-          : undefined;
-
-      nodes.set(nodeId, {
-        id: nodeId,
-        label,
-        title: createNodeTooltip(node.properties),
-        group: nodeType,
-        ...(customColor && {
-          color: {
-            background: customColor.background,
-            border: customColor.border,
-            highlight: {
-              background: customColor.background,
-              border: customColor.border,
-            },
-            hover: {
-              background: customColor.background,
-              border: customColor.border,
-            },
-          },
-        }),
-      });
+    Flow?: {
+      fieldName: string | null;
+      colorConfig: Record<string, { background: string; border: string }>;
     };
+  }>({
+    Application: { fieldName: null, colorConfig: {} },
+    Flow: { fieldName: null, colorConfig: {} },
+  });
 
-    results.forEach((record) => {
-      const nodeA = record.a;
-      const nodeB = record.b;
-      const relationship = record.e;
+  const handleQueryResults = useCallback(
+    (results: any[]) => {
+      const nodes = new Map();
+      const edges: any[] = [];
 
-      if (nodeA) createNode(nodeA);
-      if (nodeB) createNode(nodeB);
+      setDataTransformed(transformData(results));
 
-      if (
-        relationship &&
-        relationship.startNodeElementId &&
-        relationship.endNodeElementId
-      ) {
-        const isApiGateway = relationship.properties?.api_gateway === true;
+      const getCustomColor = (type: string, properties: any) => {
+        if (type !== "application" && type !== "flow") return undefined;
 
-        edges.push({
-          id: relationship.elementId,
-          from: relationship.startNodeElementId,
-          to: relationship.endNodeElementId,
-          label: relationship.properties?.name || relationship.type,
-          arrows: "to",
-          title: createEdgeTooltip(relationship.properties),
-          color: {
-            color: isApiGateway ? "green" : "orange",
-            highlight: isApiGateway ? "green" : "orange",
-            hover: isApiGateway ? "green" : "orange",
-          },
+        const entityConfig =
+          colorConfig[type === "application" ? "Application" : "Flow"];
+        if (!entityConfig || !entityConfig.fieldName) return undefined;
+
+        const value = properties?.[entityConfig.fieldName];
+        //if (!value) return undefined;
+
+        const colorForValue = entityConfig.colorConfig?.[value];
+
+        if (!colorForValue) return undefined;
+
+        return colorForValue;
+      };
+
+      const createNode = (node: any) => {
+        const nodeId = node.elementId;
+        if (nodes.has(nodeId)) return;
+
+        const label =
+          node.properties.name || node.properties.nickname || "Unnamed";
+        const nodeType = node.labels[0]?.toLowerCase() || "generic";
+        const customColor = getCustomColor(nodeType, node.properties);
+
+        nodes.set(nodeId, {
+          id: nodeId,
+          label,
+          title: createNodeTooltip(node.properties),
+          group: nodeType,
+          ...(customColor && {
+            color: {
+              background: customColor.background,
+              border: customColor.border || customColor.background,
+              highlight: {
+                background: customColor.background,
+                border: customColor.border || customColor.background,
+              },
+              hover: {
+                background: customColor.background,
+                border: customColor.border || customColor.background,
+              },
+            },
+          }),
         });
-      }
-    });
+      };
 
-    setGraphData({
-      nodes: Array.from(nodes.values()),
-      edges,
-    });
-  }, []);
+      results.forEach((record) => {
+        const nodeA = record.a;
+        const nodeB = record.b;
+        const relationship = record.e;
+
+        if (nodeA) createNode(nodeA);
+        if (nodeB) createNode(nodeB);
+
+        if (
+          relationship &&
+          relationship.startNodeElementId &&
+          relationship.endNodeElementId
+        ) {
+          const customEdgeColor = getCustomColor(
+            "flow",
+            relationship.properties
+          );
+
+          edges.push({
+            id: relationship.elementId,
+            from: relationship.startNodeElementId,
+            to: relationship.endNodeElementId,
+            label: relationship.properties?.name || relationship.type,
+            arrows: "to",
+            title: createEdgeTooltip(relationship.properties),
+            color: customEdgeColor
+              ? {
+                  color: customEdgeColor.background,
+                  highlight: customEdgeColor.background,
+                  hover: customEdgeColor.background,
+                  border: customEdgeColor.border || customEdgeColor.background,
+                  inherit: false,
+                }
+              : undefined,
+          });
+        }
+      });
+
+      setGraphData({
+        nodes: Array.from(nodes.values()),
+        edges,
+      });
+    },
+    [colorConfig]
+  );
 
   const handleApplicationSubmit = async (data: any) => {
     try {
@@ -909,6 +933,21 @@ export function NetworkGraph() {
                 <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
               </TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsColorConfigOpen(true)}
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Configure colors</p>
+              </TooltipContent>
+            </Tooltip>
           </TooltipProvider>
         </div>
 
@@ -1054,7 +1093,6 @@ export function NetworkGraph() {
                       data: flowData,
                       type: flowData.type,
                     });
-                    console.log(flowData);
                     setIsFlowDialogOpen(false);
                   }}
                 >
@@ -1089,6 +1127,17 @@ export function NetworkGraph() {
         description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+
+      <ColorConfigModal
+        isOpen={isColorConfigOpen}
+        onClose={() => setIsColorConfigOpen(false)}
+        onSave={(config) => {
+          setColorConfig((prev: any) => ({ ...prev, ...config }));
+        }}
+        onReset={() => {
+          setColorConfig({});
+        }}
       />
     </div>
   );
