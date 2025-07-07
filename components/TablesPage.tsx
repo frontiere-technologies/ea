@@ -319,9 +319,9 @@ export function TablesPage() {
                 .filter(Boolean)
             )
           : "[]",
-        ams_contact_phone: data.ams_contact_phone
+        ams_contacts_phone: data.ams_contacts_phone
           ? JSON.stringify(
-              data.ams_contact_phone
+              data.ams_contacts_phone
                 .split(",")
                 .map((v) => v.trim())
                 .filter(Boolean)
@@ -343,7 +343,7 @@ export function TablesPage() {
                 .filter(Boolean)
             )
           : "[]",*/
-        ams_contact_phone: data.ams_contact_phone || "",
+        ams_contacts_phone: data.ams_contacts_phone || "",
         ams_expire_date: data.ams_expire_date || null,
         ams_supplier: data.ams_supplier || "",
         ams_portal: data.ams_portal || "",

@@ -310,10 +310,10 @@ export function NetworkGraph() {
         business_contacts: data.business_contacts ? JSON.stringify(data.business_contacts.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         internal_developers: data.internal_developers ? JSON.stringify(data.internal_developers.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         ams_contacts_email: data.ams_contacts_email ? JSON.stringify(data.ams_contacts_email.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
-        ams_contact_phone: data.ams_contact_phone ? JSON.stringify(data.ams_contact_phone.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
+        ams_contacts_phone: data.ams_contacts_phone ? JSON.stringify(data.ams_contacts_phone.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         smes_factory: data.smes_factory ? JSON.stringify(data.smes_factory.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",*/
-        ams_contact_phone: data.ams_contact_phone || "",
+        ams_contacts_phone: data.ams_contacts_phone || "",
         ams_expire_date: data.ams_expire_date || null,
         ams_supplier: data.ams_supplier || "",
         ams_portal: data.ams_portal || "",
