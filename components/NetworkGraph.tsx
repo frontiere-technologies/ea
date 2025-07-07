@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Network } from "vis-network";
 import { executeQuery } from "@/lib/neo4j";
-import { AppWindow, Link as Line, Magnet } from "lucide-react";
+import { AppWindow, Link as Line, Magnet, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +36,7 @@ import {
   getApplicationLabels
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import { ColorSettingsModal } from "./ColorSettingsModal";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -244,6 +245,13 @@ export function NetworkGraph() {
   });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
+  const [isColorModalOpen, setIsColorModalOpen] = useState(false);
+  const [colorSettings, setColorSettings] = useState({
+    nodeProperty: null,
+    nodeColors: {},
+    edgeProperty: null,
+    edgeColors: {},
+  } as any);
 
   const handleQueryResults = useCallback((results: any[]) => {
     const nodes = new Map();
@@ -365,6 +373,7 @@ export function NetworkGraph() {
             const network = networkRef.current as NetworkWithBody;
             network.body.data.nodes.add(nodeData);
             currentDataRef.current.nodes.set(newNode.elementId, nodeData);
+            applyColorSettings(colorSettings);
           }
 
           const newApp = transformData(result);
@@ -416,6 +425,7 @@ export function NetworkGraph() {
             const network = networkRef.current as NetworkWithBody;
             network.body.data.edges.add(edgeData);
             currentDataRef.current.edges.set(newNode.elementId, edgeData);
+            applyColorSettings(colorSettings);
           }
 
           const newApp = transformData(result);
@@ -508,6 +518,42 @@ export function NetworkGraph() {
     }
   }, [isPhysicsEnabled]);
 
+  const applyColorSettings = useCallback(
+    (settings: any) => {
+      if (!networkRef.current) return;
+      const nodeUpdates: any[] = [];
+      currentDataRef.current.nodes.forEach((node) => {
+        const props = dataTransformedRef.current[node.id];
+        let color = null;
+        if (settings.nodeProperty && props && props.labels) {
+          const val = String(props[settings.nodeProperty] ?? "");
+          const c = settings.nodeColors[val];
+          if (c) {
+            color = { background: c, border: c };
+          }
+        }
+        nodeUpdates.push({ id: node.id, color });
+      });
+      networkRef.current.body.data.nodes.update(nodeUpdates);
+
+      const edgeUpdates: any[] = [];
+      currentDataRef.current.edges.forEach((edge) => {
+        const props = dataTransformedRef.current[edge.id];
+        let color = null;
+        if (settings.edgeProperty && props) {
+          const val = String(props[settings.edgeProperty] ?? "");
+          const c = settings.edgeColors[val];
+          if (c) {
+            color = { color: c, highlight: c };
+          }
+        }
+        edgeUpdates.push({ id: edge.id, color });
+      });
+      networkRef.current.body.data.edges.update(edgeUpdates);
+    },
+    []
+  );
+
   const expandNode = async (nodeId: string) => {
     if (!networkRef.current) return;
     const network = networkRef.current as NetworkWithBody;
@@ -597,6 +643,10 @@ export function NetworkGraph() {
       }
 
       if (newNodes.length > 0 || newEdges.length > 0) {
+        applyColorSettings(colorSettings);
+      }
+
+      if (newNodes.length > 0 || newEdges.length > 0) {
         setTimeout(() => {
           if (networkRef.current) {
             networkRef.current.setOptions({
@@ -648,6 +698,8 @@ export function NetworkGraph() {
         options
       );
 
+      applyColorSettings(colorSettings);
+
       networkRef.current.on("dragStart", () => {
         networkRef.current?.setOptions({ physics: { enabled: false } });
       });
@@ -696,7 +748,7 @@ export function NetworkGraph() {
     } catch (error) {
       console.error("Error initializing network:", error);
     }
-  }, [graphData]);
+  }, [graphData, colorSettings, applyColorSettings, expandNode]);
 
   useEffect(() => {
     if (!isApplicationDialogOpen) {
@@ -749,6 +801,10 @@ export function NetworkGraph() {
   useEffect(() => {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
+
+  useEffect(() => {
+    applyColorSettings(colorSettings);
+  }, [colorSettings, applyColorSettings]);
 
 
   /* Gestione Dropdown */
@@ -863,6 +919,21 @@ export function NetworkGraph() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsColorModalOpen(true)}
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Color settings</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1045,6 +1116,13 @@ export function NetworkGraph() {
         description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+
+      <ColorSettingsModal
+        open={isColorModalOpen}
+        onClose={() => setIsColorModalOpen(false)}
+        data={dataTransformed}
+        onApply={(settings) => setColorSettings(settings)}
       />
     </div>
   );

@@ -13,7 +13,7 @@ const CKEditor = dynamic(
   async () => {
     const { CKEditor } = await import("@ckeditor/ckeditor5-react");
     const { default: ClassicEditor } = await import("@ckeditor/ckeditor5-build-classic");
-    return ({ data, onReady, onChange, config }: any) => (
+    const EditorComponent = ({ data, onReady, onChange, config }: any) => (
       <CKEditor
         editor={ClassicEditor as any}
         data={data}
@@ -22,6 +22,8 @@ const CKEditor = dynamic(
         config={config}
       />
     );
+    EditorComponent.displayName = "CKEditorComponent";
+    return EditorComponent;
   },
   {
     ssr: false,
@@ -93,3 +95,5 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     </div>
   );
 }
+
+RichTextEditor.displayName = "RichTextEditor";

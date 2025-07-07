@@ -61,7 +61,7 @@ export function HelpPage() {
                   <p className="text-muted-foreground">
                     Contact information should be provided as JSON arrays, for example:
                     <code className="block bg-muted p-2 rounded-md mt-2">
-                      ["contact1@example.com", "contact2@example.com"]
+                      [&quot;contact1@example.com&quot;, &quot;contact2@example.com&quot;]
                     </code>
                   </p>
                 </section>
