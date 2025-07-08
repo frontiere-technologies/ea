@@ -247,18 +247,15 @@ export function NetworkGraph() {
   const [flowLabels, setFlowLabels] = useState([]);
   const [isColorConfigOpen, setIsColorConfigOpen] = useState<any>(false);
   const [colorConfig, setColorConfig] = useState<{
-    Application?: {
-      fieldName: string | null;
-      colorConfig: Record<string, { background: string; border: string }>;
-    };
-    Flow?: {
-      fieldName: string | null;
-      colorConfig: Record<string, { background: string; border: string }>;
-    };
-  }>({
-    Application: { fieldName: null, colorConfig: {} },
-    Flow: { fieldName: null, colorConfig: {} },
-  });
+  Application?: {
+    fieldName: string;
+    colorConfig: Record<string, { background: string; border: string }>;
+  };
+  Flow?: {
+    fieldName: string;
+    colorConfig: Record<string, { background: string; border: string }>;
+  };
+}>({});
 
   const handleQueryResults = useCallback(
     (results: any[]) => {
@@ -1135,9 +1132,10 @@ export function NetworkGraph() {
         onSave={(config) => {
           setColorConfig((prev: any) => ({ ...prev, ...config }));
         }}
-        onReset={() => {
-          setColorConfig({});
-        }}
+        //onReset={() => {
+          //setColorConfig({});
+        //}}
+        initialConfig={colorConfig}
       />
     </div>
   );
