@@ -1,4 +1,3 @@
-// components/Collapsible.tsx
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -10,10 +9,10 @@ import {
 import { ChevronDown, GripVertical } from "lucide-react";
 
 interface DrawingItem {
-  id: string | number; // Ho rimosso '?' perché ora lo garantiamo
+  id: string | number;
   name: string;
   svg?: string | null;
-  type?: "shape" | "label" | "image"; // <--- AGGIUNTA
+  type?: "shape" | "label" | "image";
   [key: string]: any;
 }
 
@@ -47,13 +46,10 @@ export function DrawingCollapsible({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    // Assicurati che gli item passati siano sempre puliti qui se la pulizia non è garantita a monte
-    // (ma l'abbiamo fatta a monte in DrawingEditor.tsx, quindi questa riga è principalmente per sincronia)
     setList(items);
   }, [items]);
 
   const filteredItems = list.filter((item) =>
-    // Ora 'item.name' è garantito essere una stringa grazie alla trasformazione in DrawingEditor.tsx
     item.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -68,7 +64,7 @@ export function DrawingCollapsible({
       id: item.id,
       name: item.name,
       svg: item.svg || null,
-      type: item.type || "shape", // <--- AGGIUNTA: Includi il tipo di item
+      type: item.type || "shape",
     };
     event.dataTransfer.setData(
       "application/json",

@@ -26,7 +26,7 @@ interface ColorConfigModalProps {
       };
     }
   ) => void;
-  onReset?: () => void; // nuova prop opzionale per reset globale
+  onReset?: () => void;
   initialConfig?: {
     Application?: {
       fieldName: string;
@@ -61,7 +61,6 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
       setColorConfig({});
       setTextInputValue("");
     } else if (initialConfig) {
-      // Imposta in base al tipo e campo configurato nella config iniziale
       if (initialConfig.Application) {
         setEntityType("Application");
         const field = applicationFields.find(f => f.name === initialConfig.Application!.fieldName) || null;
