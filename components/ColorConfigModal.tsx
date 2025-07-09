@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { applicationFields, AppFieldConfig } from "@/lib/applicationFields";
 import { flowFields, FlowFieldConfig } from "@/lib/flowFields";
+import { Plus } from "lucide-react";
 
 type EntityType = "Application" | "Flow";
 
@@ -342,18 +343,22 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
                         const nv = curr.textInputValue.trim();
                         if (!nv || curr.colorConfig[nv]) return;
                         updateState({
-                          colorConfig: { ...curr.colorConfig, [nv]: { background: "#000000", border: "#000000" } },
+                          colorConfig: {
+                            ...curr.colorConfig,
+                            [nv]: { background: "#000000", border: "#000000" },
+                          },
                           textInputValue: "",
                         });
                       }}
                       disabled={curr.textInputValue.trim() === ""}
-                      className={`px-3 py-1 border border-gray-300 rounded text-sm ${
+                      className={`flex items-center justify-center gap-1 px-3 py-1 border border-gray-300 rounded text-sm ${
                         curr.textInputValue.trim() === ""
                           ? "text-gray-400 cursor-not-allowed bg-gray-100"
                           : "bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer"
                       }`}
+                      aria-label="Add value"
                     >
-                      +
+                      <Plus size={16} />
                     </button>
                   </div>
                 </div>
