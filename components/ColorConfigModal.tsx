@@ -17,6 +17,7 @@ interface TabState {
   selectedField: AppFieldConfig | FlowFieldConfig | null;
   colorConfig: Record<string, { background: string; border: string }>;
   textInputValue: string;
+  dateInputValues: Record<string, string>;
 }
 
 interface ColorConfigModalProps {
@@ -64,22 +65,43 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
       selectedField: null,
       colorConfig: {},
       textInputValue: "",
+      dateInputValues: { before: "", at: "", after: "" },
     },
     Flow: {
       selectedField: null,
       colorConfig: {},
       textInputValue: "",
+      dateInputValues: { before: "", at: "", after: "" },
     },
   });
 
   useEffect(() => {
     if (!isOpen) {
       setTabsState({
-        Application: { selectedField: null, colorConfig: {}, textInputValue: "" },
-        Flow: { selectedField: null, colorConfig: {}, textInputValue: "" },
+        Application: {
+          selectedField: null,
+          colorConfig: {},
+          textInputValue: "",
+          dateInputValues: { before: "", at: "", after: "" },
+        },
+        Flow: {
+          selectedField: null,
+          colorConfig: {},
+          textInputValue: "",
+          dateInputValues: { before: "", at: "", after: "" },
+        },
       });
       setEntityType("Application");
     } else if (initialConfig) {
+      const extractDates = (config: Record<string, any>) => {
+        const dateInputs = { before: "", at: "", after: "" };
+        Object.keys(config || {}).forEach((key) => {
+          const [prefix, date] = key.split(":");
+          if (prefix in dateInputs) dateInputs[prefix as keyof typeof dateInputs] = date;
+        });
+        return dateInputs;
+      };
+
       setTabsState({
         Application: {
           selectedField: initialConfig.Application
@@ -87,6 +109,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             : null,
           colorConfig: initialConfig.Application?.colorConfig || {},
           textInputValue: "",
+          dateInputValues: extractDates(initialConfig.Application?.colorConfig || {}),
         },
         Flow: {
           selectedField: initialConfig.Flow
@@ -94,6 +117,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             : null,
           colorConfig: initialConfig.Flow?.colorConfig || {},
           textInputValue: "",
+          dateInputValues: extractDates(initialConfig.Flow?.colorConfig || {}),
         },
       });
       setEntityType("Application");
@@ -101,7 +125,6 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
   }, [isOpen, initialConfig]);
 
   const fields = entityType === "Application" ? applicationFields : flowFields;
-
   const currentTabState = tabsState[entityType];
 
   const onFieldChange = (fieldName: string) => {
@@ -112,6 +135,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
         selectedField: field,
         colorConfig: {},
         textInputValue: "",
+        dateInputValues: { before: "", at: "", after: "" },
       },
     }));
   };
@@ -146,6 +170,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
         selectedField: null,
         colorConfig: {},
         textInputValue: "",
+        dateInputValues: { before: "", at: "", after: "" },
       },
     }));
     if (onReset) onReset();
@@ -217,110 +242,101 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
 
           {currentTabState.selectedField && (
             <div>
-              {currentTabState.selectedField.type === "select" &&
-              currentTabState.selectedField.options ? (
+              {currentTabState.selectedField.type === "date" ? (
+                <div className="space-y-2 max-h-48 overflow-auto border p-2 rounded">
+                  {["before", "at", "after"].map((comparison) => {
+                    const value = currentTabState.dateInputValues?.[comparison] || "";
+
+                    const minDate =
+                      comparison === "before"
+                        ? undefined
+                        : comparison === "at"
+                        ? currentTabState.dateInputValues.before || undefined
+                        : currentTabState.dateInputValues.at || currentTabState.dateInputValues.before;
+
+                    const maxDate =
+                      comparison === "after"
+                        ? undefined
+                        : comparison === "at"
+                        ? currentTabState.dateInputValues.after || undefined
+                        : currentTabState.dateInputValues.at || currentTabState.dateInputValues.after;
+
+                    return (
+                      <div key={comparison} className="flex items-center gap-2">
+                        <div className="w-20 capitalize">{comparison}</div>
+
+                        <input
+                          type="date"
+                          value={value}
+                          min={minDate}
+                          max={maxDate}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            const newKey = `${comparison}:${newDate}`;
+
+                            setTabsState((prev) => ({
+                              ...prev,
+                              [entityType]: {
+                                ...prev[entityType],
+                                dateInputValues: {
+                                  ...prev[entityType].dateInputValues,
+                                  [comparison]: newDate,
+                                },
+                              },
+                            }));
+
+                            onColorChange(
+                              newKey,
+                              "background",
+                              currentTabState.colorConfig[newKey]?.background || "#000000"
+                            );
+                          }}
+                          className="flex-1 border rounded px-2 py-1"
+                        />
+
+                        <input
+                          type="color"
+                          value={
+                            currentTabState.colorConfig[`${comparison}:${value}`]?.background ||
+                            "#000000"
+                          }
+                          onChange={(e) => {
+                            if (!value) return;
+                            const newKey = `${comparison}:${value}`;
+                            onColorChange(newKey, "background", e.target.value);
+                          }}
+                          className="w-8 h-7"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : currentTabState.selectedField.type === "select" &&
+                currentTabState.selectedField.options ? (
                 <div className="space-y-2 max-h-48 overflow-auto border p-2 rounded">
                   {currentTabState.selectedField.options.map(({ value, label }) => (
                     <div key={value} className="flex items-center justify-between gap-4">
                       <div className="flex-1">{label}</div>
-                      <div className="flex gap-2">
-                        <input
-                          type="color"
-                          title="Background"
-                          value={currentTabState.colorConfig[value]?.background || "#000000"}
-                          onChange={(e) => onColorChange(value, "background", e.target.value)}
-                          className="w-8 h-7"
-                        />
-                      </div>
+                      <input
+                        type="color"
+                        title="Background"
+                        value={currentTabState.colorConfig[value]?.background || "#000000"}
+                        onChange={(e) => onColorChange(value, "background", e.target.value)}
+                        className="w-8 h-7"
+                      />
                     </div>
                   ))}
-                </div>
-              ) : currentTabState.selectedField.type === "text" ||
-                currentTabState.selectedField.type === "rich-text" ? (
-                <div className="flex items-center gap-4">
-                  <input
-                    type="text"
-                    placeholder="Enter value"
-                    value={currentTabState.textInputValue}
-                    onChange={(e) =>
-                      setTabsState((prev) => ({
-                        ...prev,
-                        [entityType]: {
-                          ...prev[entityType],
-                          textInputValue: e.target.value,
-                        },
-                      }))
-                    }
-                    className="flex-1 border rounded px-3 py-2"
-                  />
-                  <input
-                    type="color"
-                    title="Background"
-                    value={
-                      currentTabState.colorConfig[currentTabState.textInputValue]?.background || "#000000"
-                    }
-                    onChange={(e) =>
-                      onColorChange(currentTabState.textInputValue, "background", e.target.value)
-                    }
-                    className="w-8 h-7"
-                  />
                 </div>
               ) : currentTabState.selectedField.type === "switch" ? (
                 <div className="space-y-2 max-h-48 overflow-auto border p-2 rounded">
                   {["true", "false"].map((val) => (
                     <div key={val} className="flex items-center justify-between gap-4">
                       <div className="flex-1">{val === "true" ? "True" : "False"}</div>
-                      <div className="flex gap-2">
-                        <input
-                          type="color"
-                          title="Background"
-                          value={currentTabState.colorConfig[val]?.background || "#000000"}
-                          onChange={(e) => onColorChange(val, "background", e.target.value)}
-                          className="w-8 h-7"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : currentTabState.selectedField.type === "date" ? (
-                <div className="space-y-2 max-h-48 overflow-auto border p-2 rounded">
-                  {["before", "at", "after"].map((comparison) => (
-                    <div key={comparison} className="flex items-center gap-2">
-                      <div className="w-20 capitalize">{comparison}</div>
-                      <input
-                        type="date"
-                        value={
-                          (() => {
-                            const key = Object.keys(currentTabState.colorConfig).find((k) =>
-                              k.startsWith(`${comparison}:`)
-                            );
-                            return key?.split(":")[1] || "";
-                          })()
-                        }
-                        onChange={(e) => {
-                          const dateKey = `${comparison}:${e.target.value}`;
-                          onColorChange(dateKey, "background", currentTabState.colorConfig[dateKey]?.background || "#000000");
-                        }}
-                        className="flex-1 border rounded px-2 py-1"
-                      />
                       <input
                         type="color"
-                        value={
-                          (() => {
-                            const key = Object.keys(currentTabState.colorConfig).find((k) =>
-                              k.startsWith(`${comparison}:`)
-                            );
-                            return key ? currentTabState.colorConfig[key]?.background || "#000000" : "#000000";
-                          })()
-                        }
-                        onChange={(e) => {
-                          const existingKey = Object.keys(currentTabState.colorConfig).find((k) =>
-                            k.startsWith(`${comparison}:`)
-                          );
-                          const datePart = existingKey?.split(":")[1] || "";
-                          const newKey = `${comparison}:${datePart}`;
-                          onColorChange(newKey, "background", e.target.value);
-                        }}
+                        title="Background"
+                        value={currentTabState.colorConfig[val]?.background || "#000000"}
+                        onChange={(e) => onColorChange(val, "background", e.target.value)}
                         className="w-8 h-7"
                       />
                     </div>

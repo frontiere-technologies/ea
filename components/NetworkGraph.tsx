@@ -265,21 +265,46 @@ export function NetworkGraph() {
       setDataTransformed(transformData(results));
 
       const getCustomColor = (type: string, properties: any) => {
-        if (type !== "application" && type !== "flow") return undefined;
+  if (type !== "application" && type !== "flow") return undefined;
 
-        const entityConfig =
-          colorConfig[type === "application" ? "Application" : "Flow"];
-        if (!entityConfig || !entityConfig.fieldName) return undefined;
+  const entityConfig =
+    colorConfig[type === "application" ? "Application" : "Flow"];
+  if (!entityConfig || !entityConfig.fieldName) return undefined;
 
-        const value = properties?.[entityConfig.fieldName];
-        //if (!value) return undefined;
+  const fieldName = entityConfig.fieldName;
+  const colorMap = entityConfig.colorConfig;
+  const value = properties?.[fieldName];
+  if (!value) return undefined;
 
-        const colorForValue = entityConfig.colorConfig?.[value];
+  // Prova match diretto (switch, select, ecc.)
+  if (colorMap[value]) {
+    return colorMap[value];
+  }
 
-        if (!colorForValue) return undefined;
+  // Gestione campo "date"
+  // Cerchiamo chiavi tipo "before:2025-01-01", "at:2025-07-09", "after:2025-08-01"
+  const dateValue = new Date(value);
+  if (isNaN(dateValue.getTime())) return undefined;
 
-        return colorForValue;
-      };
+  let matchedColor = undefined;
+
+  Object.entries(colorMap).forEach(([key, color]) => {
+    const [prefix, dateStr] = key.split(":");
+    const configDate = new Date(dateStr);
+    if (isNaN(configDate.getTime())) return;
+
+    if (prefix === "before" && dateValue < configDate) {
+      matchedColor = color;
+    } else if (prefix === "at" && dateValue.toISOString().split("T")[0] === configDate.toISOString().split("T")[0]) {
+      matchedColor = color;
+    } else if (prefix === "after" && dateValue > configDate) {
+      matchedColor = color;
+    }
+  });
+
+  return matchedColor;
+};
+
 
       const createNode = (node: any) => {
         const nodeId = node.elementId;
