@@ -247,15 +247,15 @@ export function NetworkGraph() {
   const [flowLabels, setFlowLabels] = useState([]);
   const [isColorConfigOpen, setIsColorConfigOpen] = useState<any>(false);
   const [colorConfig, setColorConfig] = useState<{
-  Application?: {
-    fieldName: string;
-    colorConfig: Record<string, { background: string; border: string }>;
-  };
-  Flow?: {
-    fieldName: string;
-    colorConfig: Record<string, { background: string; border: string }>;
-  };
-}>({});
+    Application?: {
+      fieldName: string;
+      colorConfig: Record<string, { background: string; border: string }>;
+    };
+    Flow?: {
+      fieldName: string;
+      colorConfig: Record<string, { background: string; border: string }>;
+    };
+  }>({});
 
   const handleQueryResults = useCallback(
     (results: any[]) => {
@@ -265,46 +265,47 @@ export function NetworkGraph() {
       setDataTransformed(transformData(results));
 
       const getCustomColor = (type: string, properties: any) => {
-  if (type !== "application" && type !== "flow") return undefined;
+        if (type !== "application" && type !== "flow") return undefined;
 
-  const entityConfig =
-    colorConfig[type === "application" ? "Application" : "Flow"];
-  if (!entityConfig || !entityConfig.fieldName) return undefined;
+        const entityConfig =
+          colorConfig[type === "application" ? "Application" : "Flow"];
+        if (!entityConfig || !entityConfig.fieldName) return undefined;
 
-  const fieldName = entityConfig.fieldName;
-  const colorMap = entityConfig.colorConfig;
-  const value = properties?.[fieldName];
-  if (!value) return undefined;
+        const fieldName = entityConfig.fieldName;
+        const colorMap = entityConfig.colorConfig;
+        const value = properties?.[fieldName];
+        //if (!value) return undefined;
 
-  // Prova match diretto (switch, select, ecc.)
-  if (colorMap[value]) {
-    return colorMap[value];
-  }
+        if (colorMap[value]) {
+          return colorMap[value];
+        }
 
-  // Gestione campo "date"
-  // Cerchiamo chiavi tipo "before:2025-01-01", "at:2025-07-09", "after:2025-08-01"
-  const dateValue = new Date(value);
-  if (isNaN(dateValue.getTime())) return undefined;
+        // "before:2025-01-01", "at:2025-07-09", "after:2025-08-01"
+        const dateValue = new Date(value);
+        if (isNaN(dateValue.getTime())) return undefined;
 
-  let matchedColor = undefined;
+        let matchedColor = undefined;
 
-  Object.entries(colorMap).forEach(([key, color]) => {
-    const [prefix, dateStr] = key.split(":");
-    const configDate = new Date(dateStr);
-    if (isNaN(configDate.getTime())) return;
+        Object.entries(colorMap).forEach(([key, color]) => {
+          const [prefix, dateStr] = key.split(":");
+          const configDate = new Date(dateStr);
+          if (isNaN(configDate.getTime())) return;
 
-    if (prefix === "before" && dateValue < configDate) {
-      matchedColor = color;
-    } else if (prefix === "at" && dateValue.toISOString().split("T")[0] === configDate.toISOString().split("T")[0]) {
-      matchedColor = color;
-    } else if (prefix === "after" && dateValue > configDate) {
-      matchedColor = color;
-    }
-  });
+          if (prefix === "before" && dateValue < configDate) {
+            matchedColor = color;
+          } else if (
+            prefix === "at" &&
+            dateValue.toISOString().split("T")[0] ===
+              configDate.toISOString().split("T")[0]
+          ) {
+            matchedColor = color;
+          } else if (prefix === "after" && dateValue > configDate) {
+            matchedColor = color;
+          }
+        });
 
-  return matchedColor;
-};
-
+        return matchedColor;
+      };
 
       const createNode = (node: any) => {
         const nodeId = node.elementId;
@@ -323,14 +324,14 @@ export function NetworkGraph() {
           ...(customColor && {
             color: {
               background: customColor.background,
-              border: customColor.border || customColor.background,
+              border: /*customColor.border ||*/ customColor.background,
               highlight: {
                 background: customColor.background,
-                border: customColor.border || customColor.background,
+                border: /*customColor.border ||*/ customColor.background,
               },
               hover: {
                 background: customColor.background,
-                border: customColor.border || customColor.background,
+                border: /*customColor.border ||*/ customColor.background,
               },
             },
           }),
@@ -1154,11 +1155,26 @@ export function NetworkGraph() {
       <ColorConfigModal
         isOpen={isColorConfigOpen}
         onClose={() => setIsColorConfigOpen(false)}
-        onSave={(config) => {
-          setColorConfig((prev: any) => ({ ...prev, ...config }));
+        onSave={(newConfig) => {
+          setColorConfig((prev) => {
+            const updated: typeof prev = { ...prev };
+            // Se Application non è presente in newConfig, rimuovila dal config
+            if (!newConfig.Application) {
+              delete updated.Application;
+            } else {
+              updated.Application = newConfig.Application;
+            }
+            // Stessa cosa per Flow
+            if (!newConfig.Flow) {
+              delete updated.Flow;
+            } else {
+              updated.Flow = newConfig.Flow;
+            }
+            return updated;
+          });
         }}
         //onReset={() => {
-          //setColorConfig({});
+        //setColorConfig({});
         //}}
         initialConfig={colorConfig}
       />
