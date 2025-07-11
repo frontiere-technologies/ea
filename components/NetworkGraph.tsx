@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Network } from "vis-network";
 import { executeQuery } from "@/lib/neo4j";
-import { AppWindow, Link as Line, Magnet, Palette } from "lucide-react";
+import { AppWindow, Link as Line, Magnet, Palette, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +37,7 @@ import {
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
 import ColorConfigModal from "./ColorConfigModal";
+import ValueFilterModal from "./ValueFilterModal";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -246,6 +247,9 @@ export function NetworkGraph() {
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
   const [isColorConfigOpen, setIsColorConfigOpen] = useState<any>(false);
+  const [isValueFilterModalOpen, setisValueFilterModalOpen] =
+    useState<any>(false);
+
   const [colorConfig, setColorConfig] = useState<{
     Application?: {
       fieldName: string;
@@ -971,6 +975,21 @@ export function NetworkGraph() {
                 <p>Configure colors</p>
               </TooltipContent>
             </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setisValueFilterModalOpen(true)}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Filters</p>
+              </TooltipContent>
+            </Tooltip>
           </TooltipProvider>
         </div>
 
@@ -1177,6 +1196,14 @@ export function NetworkGraph() {
         //setColorConfig({});
         //}}
         initialConfig={colorConfig}
+      />
+      <ValueFilterModal
+        isOpen={isValueFilterModalOpen}
+        onClose={() => setisValueFilterModalOpen(false)}
+        onSave={(cypher) => {
+          setQuery(cypher);
+          console.log("Cypher generata:", cypher);
+        }}
       />
     </div>
   );
