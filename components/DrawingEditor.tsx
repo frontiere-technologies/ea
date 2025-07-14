@@ -13,7 +13,8 @@ import {
   loadSnapshot,
   track,
   useEditor,
-  getArrowBindings
+  getArrowBindings,
+  Editor, // Importa Editor direttamente da tldraw
 } from "tldraw";
 import "tldraw/tldraw.css";
 import {
@@ -35,14 +36,31 @@ import { DrawingCollapsible } from "./Collapsible";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { FlowForm } from "./FlowForm";
 import { ApplicationForm } from "./ApplicationForm";
 import { AppWindow, Link } from "lucide-react";
 import { icons } from "@/assets/icons";
 import { ApplicationShapeUtil } from "./custom_shapes/ApplicationShape";
-import { getApplications, getNodesRelationships, saveApplication, saveFlow } from "@/lib/neo4jUtils";
+import {
+  getApplications,
+  getNodesRelationships,
+  saveApplication,
+  saveFlow,
+  getFlowLabels,
+  getFlowGraphByLabel,
+} from "@/lib/neo4jUtils";
+
+interface Application {
+  id: string;
+  name: string;
+}
+
+interface DragDropItem extends Application {
+  selected: boolean;
+  type: "shape" | "label" | "image";
+}
 
 export function DrawingEditor() {
   const [selected, setSelected] = useState<any>(null);
@@ -55,17 +73,19 @@ export function DrawingEditor() {
   const [isFlowDialogOpen, setIsFlowDialogOpen] = useState(false);
   const [flowFormData, setFlowFormData] = useState<any>({});
   const [applications, setApplications] = useState<any[]>([]);
-  const [dragDropApplications, setDragDropApplications] = useState<any[]>([]);
+  const [dragDropApplications, setDragDropApplications] = useState<DragDropItem[]>([]);
   const [isCollapseOpen, setIsCollapseOpen] = useState(false);
   const [isSVGCollapseOpen, setIsSVGCollapseOpen] = useState(false);
+  const [flowLabels, setFlowLabels] = useState<DragDropItem[]>([]);
+  const [isLabelsCollapseOpen, setIsLabelsCollapseOpen] = useState(false);
   const previousShapesRef = useRef<Record<string, any>>({});
   const [selectedShapes, setSelectedShapes] = useState<Boolean>(false);
   const [selectedArrowId, setselectedArrowId] = useState<any>();
 
-
   useEffect(() => {
     fetchApplications();
     fetchDrawings();
+    fetchFlowLabels();
   }, []);
 
   useEffect(() => {
@@ -78,15 +98,33 @@ export function DrawingEditor() {
         const apps = result.map((r: any) => r.a);
         setApplications(apps);
 
-        const transformedData = apps.map((item: any) => ({
+        const transformedData: DragDropItem[] = apps.map((item: any) => ({
           id: item.properties.application_id,
           name: item.properties.name,
           selected: false,
+          type: "shape",
         }));
 
         setDragDropApplications(transformedData);
       } else {
         toast.error("Failed to load applications");
+      }
+    });
+  };
+
+  const fetchFlowLabels = async () => {
+    getFlowLabels().then((result) => {
+      if (result && result.length > 0) {
+        const transformedDataLabels: DragDropItem[] = result.map((item: string) => ({
+          id: item,
+          name: item,
+          selected: false,
+          type: "label",
+        }));
+        setFlowLabels(transformedDataLabels);
+      } else {
+        toast.error("Failed to load flow labels");
+        setFlowLabels([]);
       }
     });
   };
@@ -112,7 +150,6 @@ export function DrawingEditor() {
     useEffect(() => {
       if (!editor) return;
 
-      // Salva snapshot iniziale delle shape
       previousShapesRef.current = Object.fromEntries(
         editor.getCurrentPageShapes().map((s: any) => [s.id, s])
       );
@@ -122,7 +159,6 @@ export function DrawingEditor() {
           editor.getCurrentPageShapes().map((s: any) => [s.id, s])
         );
 
-        // Trova shape che erano presenti prima ma ora non più
         const removedShapeIds = Object.keys(previousShapesRef.current).filter(
           (id) => !(id in currentShapes)
         );
@@ -134,7 +170,6 @@ export function DrawingEditor() {
           });
         }
 
-        // Aggiorna snapshot
         previousShapesRef.current = currentShapes;
       }
 
@@ -149,34 +184,28 @@ export function DrawingEditor() {
   };
 
   const ShapeListener = track(function MetaUiHelper() {
-  const editor = useEditor()
+    const editor = useEditor();
 
-  useEffect(() => {
-    //const selectedShapes = editor.getSelectedShapes()
-    const onlySelected = editor.getOnlySelectedShape()
+    useEffect(() => {
+      const onlySelected = editor.getOnlySelectedShape();
+      const selectedShapes = editor.getSelectedShapes();
 
-    //setSelectedShapes(selectedShapes)
+      const isApplicationPair =
+        selectedShapes.length === 2 &&
+        selectedShapes.every((shape) => shape.type === "application");
 
-    const selectedShapes = editor.getSelectedShapes()
+      setSelectedShapes(isApplicationPair);
 
-    // Controllo se sono selezionate esattamente due shape di tipo "Application"
-    const isApplicationPair =
-      selectedShapes.length === 2 &&
-      selectedShapes.every((shape) => shape.type === 'application')
+      if (onlySelected?.type === "arrow") {
+        setselectedArrowId(onlySelected.id);
+        setShowFlowContext(true);
+      } else {
+        setShowFlowContext(false);
+      }
+    }, [editor, editor.getSelectedShapeIds().join()]);
 
-    setSelectedShapes(isApplicationPair)
-
-    // Controllo se la selezione è una freccia
-    if (onlySelected?.type === 'arrow') {
-      setselectedArrowId(onlySelected.id)
-      setShowFlowContext(true)
-    } else {
-      setShowFlowContext(false)
-    }
-  }, [editor, editor.getSelectedShapeIds().join()])
-
-  return null
-})
+    return null;
+  });
 
   /* ------------------Utility------------------*/
   const saveDrawing = async (obj: any) => {
@@ -223,6 +252,7 @@ export function DrawingEditor() {
         links_to_documentation: data.links_to_documentation || "",
         ams_type: data.ams_type || "",
         decommission_date: data.decommission_date || null,
+        notes: data.notes || "",
       };
 
       await handleSaveApplication(transformedData);
@@ -236,11 +266,9 @@ export function DrawingEditor() {
     try {
       const transformedData = {
         ...data,
-        //notes: data.notes ? JSON.stringify(data.notes.split(',').map(v => v.trim()).filter(Boolean)) : "[]",
         release_date: data.release_date || null,
       };
 
-      //console.log("Data -> ", transformedData)
       await handleSaveFlow(transformedData);
     } catch (error) {
       console.error("Error transforming data:", error);
@@ -252,15 +280,17 @@ export function DrawingEditor() {
     if (!data) return;
 
     setIsLoading(true);
-    saveApplication(data).then((result) => {
-      if (result && result.length > 0) {
-        toast.success("Application added successfully");
-        setIsApplicationDialogOpen(false);
-      } else {
-        toast.error("Failed to save application");
-      }
-      setIsLoading(false);
-    }).finally(() => fetchApplications());
+    saveApplication(data)
+      .then((result) => {
+        if (result && result.length > 0) {
+          toast.success("Application added successfully");
+          setIsApplicationDialogOpen(false);
+        } else {
+          toast.error("Failed to save application");
+        }
+        setIsLoading(false);
+      })
+      .finally(() => fetchApplications());
   };
 
   const handleSaveFlow = async (data: any) => {
@@ -278,108 +308,91 @@ export function DrawingEditor() {
     });
   };
 
-function getRelationships(nodeA: string, nodeB: string) {
-  const editor = editorRef.current;
-  if (!editor) return;
+  function getRelationships(nodeA: string, nodeB: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
 
-  const shapeAId = `shape:${nodeA}`;
-  const shapeBId = `shape:${nodeB}`;
+    const shapeAId = `shape:${nodeA}`;
+    const shapeBId = `shape:${nodeB}`;
 
-  const shapeA = editor.getShape(shapeAId);
-  const shapeB = editor.getShape(shapeBId);
+    const shapeA = editor.getShape(shapeAId);
+    const shapeB = editor.getShape(shapeBId);
 
-  if (!shapeA || !shapeB) {
-    toast.error("Shapes not found on canvas");
-    return;
-  }
-
-  getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
-    if (!result || result.length === 0) {
-      toast.error("There are no relationships between the two applications");
+    if (!shapeA || !shapeB) {
+      toast.error("Shapes not found on canvas");
       return;
     }
 
-    // Raggruppa per direzione
-    const forward = result.filter(
-      (r: any) =>
-        r.r.properties.initiator_application === nodeA &&
-        r.r.properties.target_application === nodeB
-    );
+    getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
+      if (!result || result.length === 0) {
+        toast.error("There are no relationships between the two applications");
+        return;
+      }
 
-    const backward = result.filter(
-      (r: any) =>
-        r.r.properties.initiator_application === nodeB &&
-        r.r.properties.target_application === nodeA
-    );
+      const forward = result.filter(
+        (r: any) =>
+          r.r.properties.initiator_application === nodeA &&
+          r.r.properties.target_application === nodeB
+      );
 
-    const drawArrow = (
-      rel: any,
-      index: number,
-      total: number,
-      isForward: boolean
-    ) => {
-      const flowId = rel.r.properties.flow_id;
-      const name = rel.r.properties.name ?? "Connection";
-      const from = rel.r.properties.initiator_application;
-      const to = rel.r.properties.target_application;
+      const backward = result.filter(
+        (r: any) =>
+          r.r.properties.initiator_application === nodeB &&
+          r.r.properties.target_application === nodeA
+      );
 
-      const fromShapeId = `shape:${from}`;
-      const toShapeId = `shape:${to}`;
+      const drawArrow = (
+        rel: any,
+        index: number,
+        total: number,
+        isForward: boolean
+      ) => {
+        const flowId = rel.r.properties.flow_id;
+        const name = rel.r.properties.name ?? "Connection";
+        const from = rel.r.properties.initiator_application;
+        const to = rel.r.properties.target_application;
 
-      const fromShape = editor.getShape(fromShapeId);
-      const toShape = editor.getShape(toShapeId);
+        const fromShapeId = `shape:${from}`;
+        const toShapeId = `shape:${to}`;
 
-      if (!fromShape || !toShape) return;
+        // Evita di creare shape o binding se esistono già
+        if (!editor.getShape(`shape:${flowId}`)) {
+          editor.createShape({
+            id: `shape:${flowId}`,
+            type: "arrow",
+            props: {
+              text: name,
+              arrowheadEnd: "arrow",
+              bend: (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1),
+              start: { x: 0, y: 0 }, // Questi verranno poi overridati dai binding
+              end: { x: 0, y: 0 },   // Questi verranno poi overridati dai binding
+            },
+          });
 
-      const boundsFrom = editor.getShapePageBounds(fromShape);
-      const boundsTo = editor.getShapePageBounds(toShape);
+          editor.createBinding({
+            type: "arrow",
+            fromId: `shape:${flowId}`,
+            toId: fromShapeId,
+            props: { terminal: "start" },
+          });
 
-      if (!boundsFrom || !boundsTo) return;
-
-      const centerFrom = {
-        x: boundsFrom.x + boundsFrom.w / 2,
-        y: boundsFrom.y + boundsFrom.h / 2,
+          editor.createBinding({
+            type: "arrow",
+            fromId: `shape:${flowId}`,
+            toId: toShapeId,
+            props: { terminal: "end" },
+          });
+        }
       };
 
-      const centerTo = {
-        x: boundsTo.x + boundsTo.w / 2,
-        y: boundsTo.y + boundsTo.h / 2,
-      };
-
-      const bend = (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1);
-
-      editor.createShape({
-        id: `shape:${flowId}`,
-        type: "arrow",
-        props: {
-          text: name,
-          arrowheadEnd: "arrow",
-          bend,
-          start: centerFrom,
-          end: centerTo,
-        },
-      });
-
-      editor.createBinding({
-        type: "arrow",
-        fromId: `shape:${flowId}`,
-        toId: fromShapeId,
-        props: { terminal: "start" },
-      });
-
-      editor.createBinding({
-        type: "arrow",
-        fromId: `shape:${flowId}`,
-        toId: toShapeId,
-        props: { terminal: "end" },
-      });
-    };
-
-    forward.forEach((rel: any, i: number) => drawArrow(rel, i, forward.length, true));
-    backward.forEach((rel: any, i: number) => drawArrow(rel, i, backward.length, false));
-  });
-}
-
+      forward.forEach((rel: any, i: number) =>
+        drawArrow(rel, i, forward.length, true)
+      );
+      backward.forEach((rel: any, i: number) =>
+        drawArrow(rel, i, backward.length, false)
+      );
+    });
+  }
 
   /* ---------------Custom TLDR--------------------- */
   function customActions() {
@@ -489,7 +502,8 @@ function getRelationships(nodeA: string, nodeB: string) {
       <DefaultContextMenu {...props}>
         <TldrawUiMenuGroup id="flowContext">
           <div>
-              {selectedShapes && <TldrawUiMenuItem
+            {selectedShapes && (
+              <TldrawUiMenuItem
                 id="show_connections"
                 label="Show connections"
                 onSelect={() => {
@@ -505,7 +519,8 @@ function getRelationships(nodeA: string, nodeB: string) {
                     shape2.id.replace(/^shape:/, "")
                   );
                 }}
-              />}
+              />
+            )}
             {showFlowContext && (
               <TldrawUiMenuItem
                 id="flow"
@@ -556,7 +571,7 @@ function getRelationships(nodeA: string, nodeB: string) {
     return (
       <div
         className="p-2 absolute flex flex-col gap-[8px] z-[50]"
-        style={{ pointerEvents: "auto", top: "50px"}}
+        style={{ pointerEvents: "auto", top: "50px" }}
       >
         <DrawingCollapsible
           type="text"
@@ -564,6 +579,14 @@ function getRelationships(nodeA: string, nodeB: string) {
           items={dragDropApplications}
           isOpen={isCollapseOpen}
           onToggle={(open: boolean) => setIsCollapseOpen(open)}
+        />
+
+        <DrawingCollapsible
+          type="text"
+          title="Labels"
+          items={flowLabels}
+          isOpen={isLabelsCollapseOpen}
+          onToggle={(open: boolean) => setIsLabelsCollapseOpen(open)}
         />
 
         <DrawingCollapsible
@@ -628,7 +651,6 @@ function getRelationships(nodeA: string, nodeB: string) {
 
     return (
       <div
-        //className="absolute bottom-3 right-2 z-[1000] flex flex-row items-center bg-none rounded-md"
         style={{ pointerEvents: "auto" }}
       >
         <Select
@@ -678,89 +700,232 @@ function getRelationships(nodeA: string, nodeB: string) {
 
   /*------------------------------*/
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const data = e.dataTransfer.getData("application/json");
-    if (!data || !editorRef.current) return;
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      const data = e.dataTransfer.getData("application/json");
+      if (!data || !editorRef.current) return;
 
-    const item = JSON.parse(data);
-    const editor = editorRef.current;
+      const item = JSON.parse(data);
+      const editor = editorRef.current;
 
-    const bounds = (e.target as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - bounds.left;
-    const y = e.clientY - bounds.top;
+      const bounds = (e.target as HTMLElement).getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
 
-    const point = editor.screenToPage({ x, y });
+      const dropPoint = editor.screenToPage({ x: clientX, y: clientY });
 
-    // SVG
-    if (item.svg) {
-      const assetId = `asset:${crypto.randomUUID()}`;
-      const svgDataUrl = `data:image/svg+xml,${encodeURIComponent(item.svg)}`;
+      // SVG Icons
+      if (item.type === "image") {
+        const assetId = `asset:${crypto.randomUUID()}`;
+        const svgDataUrl = `data:image/svg+xml,${encodeURIComponent(item.svg)}`;
 
-      editor.store.put([
-        {
-          id: assetId,
-          typeName: "asset",
+        editor.store.put([
+          {
+            id: assetId,
+            typeName: "asset",
+            type: "image",
+            props: {
+              src: svgDataUrl,
+              mimeType: "image/svg+xml",
+              w: 100,
+              h: 100,
+              name: `svg-${assetId}`,
+              isAnimated: false,
+            },
+            meta: {},
+          },
+        ]);
+
+        editor.createShape({
+          id: `shape:${crypto.randomUUID()}`,
           type: "image",
+          x: dropPoint.x,
+          y: dropPoint.y,
           props: {
-            src: svgDataUrl,
-            mimeType: "image/svg+xml",
+            assetId: assetId,
             w: 100,
             h: 100,
-            name: `svg-${assetId}`,
-            isAnimated: false,
           },
+        });
+        return;
+      }
+      // Handle Label Drop
+      else if (item.type === "label") {
+        const label = item.name;
+        const loadingToastId = toast.loading(`Loading graph for "${label}"...`);
 
-          meta: {},
-        },
-      ]);
+        try {
+          const neo4jResult = await getFlowGraphByLabel(label);
 
-      editor.createShape({
-        id: `shape:${crypto.randomUUID()}`,
-        type: "image",
-        x: point.x,
-        y: point.y,
-        props: {
-          assetId: assetId,
-          w: 100,
-          h: 100,
-        },
-      });
+          if (neo4jResult && neo4jResult.length > 0) {
+            const newShapesToCreate: any[] = [];
+            const newBindingsToCreate: any[] = [];
+            const existingShapeIds = new Set(
+              editor.getCurrentPageShapes().map((s: any) => s.id)
+            );
 
-      return;
-    }
+            let nodeCount = 0;
+            const nodeSpacing = 800; // Spazio tra i nodi
+            const nodesPerRow = 3;   // Nodi per riga
 
-    // Altrimenti crea una shape standard (applicazione)
-    const existingShape = editor
-      .getCurrentPageShapes()
-      .find((shape: any) => shape.meta?.data?.id === item.id);
+            const processedNodes = new Set<string>();
 
-    if (existingShape) {
-      return;
-    }
+            neo4jResult.forEach((record: any) => {
+                const startNode = record.a;
+                const relationship = record.e;
+                const endNode = record.b;
 
-    setDragDropApplications((prev) =>
-      prev.map((app) =>
-        app.id === item.id ? { ...app, selected: !app.selected } : app
-      )
-    );
+                if (!startNode || !relationship || !endNode) {
+                    console.warn("Record incompleto ricevuto da Neo4j:", record);
+                    return;
+                }
 
-    editor.createShape({
-      id: `shape:${item.id}`,
-      type: "application", // custom type
-      x: point.x,
-      y: point.y,
-      props: {
-        w: 250,
-        h: 100,
-        name: item.name,
-      },
-      meta: {
-        type: "application",
-        data: item,
-      },
-    });
-  }
+                const startAppId = startNode.properties.application_id;
+                const startShapeId = `shape:${startAppId}`;
+                if (!existingShapeIds.has(startShapeId) && !processedNodes.has(startAppId)) {
+                    const row = Math.floor(nodeCount / nodesPerRow);
+                    const col = nodeCount % nodesPerRow;
+
+                    newShapesToCreate.push({
+                        id: startShapeId,
+                        type: "application",
+                        x: dropPoint.x + col * nodeSpacing,
+                        y: dropPoint.y + row * nodeSpacing,
+                        props: {
+                            w: 250,
+                            h: 100,
+                            name: startNode.properties.name,
+                        },
+                        meta: {
+                            type: "application",
+                            data: {
+                                id: startAppId,
+                                name: startNode.properties.name,
+                            },
+                        },
+                    });
+                    processedNodes.add(startAppId);
+                    nodeCount++;
+                }
+
+                const endAppId = endNode.properties.application_id;
+                const endShapeId = `shape:${endAppId}`;
+                if (!existingShapeIds.has(endShapeId) && !processedNodes.has(endAppId)) {
+                    const row = Math.floor(nodeCount / nodesPerRow);
+                    const col = nodeCount % nodesPerRow;
+
+                    newShapesToCreate.push({
+                        id: endShapeId,
+                        type: "application",
+                        x: dropPoint.x + col * nodeSpacing,
+                        y: dropPoint.y + row * nodeSpacing,
+                        props: {
+                            w: 250,
+                            h: 100,
+                            name: endNode.properties.name,
+                        },
+                        meta: {
+                            type: "application",
+                            data: {
+                                id: endAppId,
+                                name: endNode.properties.name,
+                            },
+                        },
+                    });
+                    processedNodes.add(endAppId);
+                    nodeCount++;
+                }
+
+                const flowId = relationship.properties.flow_id;
+                const arrowShapeId = `shape:${flowId}`;
+
+                if (!existingShapeIds.has(arrowShapeId)) {
+                    newShapesToCreate.push({
+                        id: arrowShapeId,
+                        type: "arrow",
+                        props: {
+                            text: relationship.properties.name || relationship.type,
+                            arrowheadEnd: "arrow",
+                            start: { x: 0, y: 0 },
+                            end: { x: 0, y: 0 },
+                        },
+                    });
+
+                    newBindingsToCreate.push({
+                        type: "arrow",
+                        fromId: arrowShapeId,
+                        toId: startShapeId,
+                        props: { terminal: "start" },
+                    });
+
+                    newBindingsToCreate.push({
+                        type: "arrow",
+                        fromId: arrowShapeId,
+                        toId: endShapeId,
+                        props: { terminal: "end" },
+                    });
+                    existingShapeIds.add(arrowShapeId);
+                }
+            });
+
+            if (newShapesToCreate.length > 0) {
+                editor.createShapes(newShapesToCreate);
+            }
+            if (newBindingsToCreate.length > 0) {
+                editor.createBindings(newBindingsToCreate);
+            }
+
+            toast.success(`Graphs for "${label}" successfully loaded`, {
+            id: loadingToastId});
+            editor.zoomToFit();
+          } else {
+            toast.info(`No nodes or flows found for the label "${label}".`, {
+            id: loadingToastId});
+          }
+        } catch (error) {
+          console.error("Error loading the graph:", error);
+          toast.error("Error loading the graph", {
+            id: loadingToastId});
+        }
+      }
+      else if (item.type === "shape") {
+        const existingShape = editor
+          .getCurrentPageShapes()
+          .find((shape: any) => shape.meta?.data?.id === item.id);
+
+        if (existingShape) {
+          toast.info("This application is already on the canvas.");
+          return;
+        }
+
+        setDragDropApplications((prev) =>
+          prev.map((app) =>
+            app.id === item.id ? { ...app, selected: !app.selected } : app
+          )
+        );
+
+        editor.createShape({
+          id: `shape:${item.id}`,
+          type: "application",
+          x: dropPoint.x,
+          y: dropPoint.y,
+          props: {
+            w: 250,
+            h: 100,
+            name: item.name,
+          },
+          meta: {
+            type: "application",
+            data: item,
+          },
+        });
+      } else {
+        console.warn("Tipo di elemento droppato non riconosciuto:", item.type);
+      }
+    },
+    [setDragDropApplications]
+  );
 
   const components: TLComponents = {
     QuickActions: customActions,
@@ -770,7 +935,7 @@ function getRelationships(nodeA: string, nodeB: string) {
   };
 
   const sortedDrawings = [...drawings].sort((a, b) => {
-    return a.filename.localeCompare(b.filename); // Ordina in ordine alfabetico
+    return a.filename.localeCompare(b.filename);
   });
 
   return (
@@ -862,17 +1027,21 @@ function getRelationships(nodeA: string, nodeB: string) {
       <Dialog open={isFlowDialogOpen} onOpenChange={setIsFlowDialogOpen}>
         <DialogContent
           className="sm:max-w-[800px] h-[90vh] flex flex-col z-[400]"
-          aria-describedby="dialog-description"
+          aria-describedby="flow-dialog-description"
         >
           <DialogHeader>
             <DialogTitle>Add new flow</DialogTitle>
           </DialogHeader>
-          <p id="dialog-description" className="sr-only">
-            Use this form to create a new flow.
+          <p id="flow-dialog-description" className="sr-only">
+            Use this form to create a new flow between two applications.
           </p>
           <ScrollArea className="flex-1 px-4">
             <div className="py-4">
-              <FlowForm onSubmit={handleFlowSubmit} data={flowFormData} />
+              <FlowForm
+                onSubmit={handleFlowSubmit}
+                data={flowFormData}
+                //applications={applications}
+              />
             </div>
           </ScrollArea>
           <DialogFooter className="mt-4 w-full">
@@ -883,7 +1052,11 @@ function getRelationships(nodeA: string, nodeB: string) {
               >
                 Cancel
               </Button>
-              <Button type="submit" form="flow-form" disabled={isLoading}>
+              <Button
+                type="submit"
+                form="flow-form"
+                disabled={isLoading}
+              >
                 Save flow
               </Button>
             </div>

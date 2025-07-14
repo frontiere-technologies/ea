@@ -9,9 +9,10 @@ import {
 import { ChevronDown, GripVertical } from "lucide-react";
 
 interface DrawingItem {
-  id?: string | number;
+  id: string | number;
   name: string;
   svg?: string | null;
+  type?: "shape" | "label" | "image";
   [key: string]: any;
 }
 
@@ -24,7 +25,6 @@ interface DrawingCollapsibleProps {
   width?: string | number;
   height?: string | number;
   footer?: (search: string) => React.ReactNode;
-
 }
 
 export function DrawingCollapsible({
@@ -35,7 +35,7 @@ export function DrawingCollapsible({
   type = "text",
   width = "250px",
   height,
-  footer
+  footer,
 }: DrawingCollapsibleProps) {
   const [search, setSearch] = useState("");
   const [list, setList] = useState(items);
@@ -64,6 +64,7 @@ export function DrawingCollapsible({
       id: item.id,
       name: item.name,
       svg: item.svg || null,
+      type: item.type || "shape",
     };
     event.dataTransfer.setData(
       "application/json",
@@ -253,7 +254,9 @@ export function DrawingCollapsible({
               </div>
             )}
 
-             {footer && <div className="mt-2 border-t pt-2">{footer(search)}</div>}
+            {footer && (
+              <div className="mt-2 border-t pt-2">{footer(search)}</div>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>

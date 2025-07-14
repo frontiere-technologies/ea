@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Network } from "vis-network";
 import { executeQuery } from "@/lib/neo4j";
-import { AppWindow, Link as Line, Magnet } from "lucide-react";
+import { AppWindow, Link as Line, Magnet, Palette, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,10 +32,12 @@ import {
   getConnectedApplicationLabels,
   saveApplication,
   saveFlow,
-  getFlowLabels, 
-  getApplicationLabels
+  getFlowLabels,
+  getApplicationLabels,
 } from "@/lib/neo4jUtils";
 import { MultiselectDropdown } from "./MultiselectDropdown";
+import ColorConfigModal from "./ColorConfigModal";
+import ValueFilterModal from "./ValueFilterModal";
 
 interface NetworkWithBody extends Network {
   body: {
@@ -244,62 +246,147 @@ export function NetworkGraph() {
   });
   const [appLabels, setAppLabels] = useState([]);
   const [flowLabels, setFlowLabels] = useState([]);
+  const [isColorConfigOpen, setIsColorConfigOpen] = useState<any>(false);
+  const [isValueFilterModalOpen, setisValueFilterModalOpen] =
+    useState<any>(false);
 
-  const handleQueryResults = useCallback((results: any[]) => {
-    const nodes = new Map();
-    const edges: any = [];
+  const [colorConfig, setColorConfig] = useState<{
+    Application?: {
+      fieldName: string;
+      colorConfig: Record<string, { background: string; border: string }>;
+    };
+    Flow?: {
+      fieldName: string;
+      colorConfig: Record<string, { background: string; border: string }>;
+    };
+  }>({});
 
-    //console.log("RESULTS ",results)
-    setDataTransformed(transformData(results));
+  const handleQueryResults = useCallback(
+    (results: any[]) => {
+      const nodes = new Map();
+      const edges: any[] = [];
 
-    results.forEach((record) => {
-      const nodeA = record.a;
-      const nodeB = record.b;
-      const relationship = record.e;
+      setDataTransformed(transformData(results));
 
-      if (nodeA && !nodes.has(nodeA.elementId)) {
+      const getCustomColor = (type: string, properties: any) => {
+        if (type !== "application" && type !== "flow") return undefined;
+
+        const entityConfig =
+          colorConfig[type === "application" ? "Application" : "Flow"];
+        if (!entityConfig || !entityConfig.fieldName) return undefined;
+
+        const fieldName = entityConfig.fieldName;
+        const colorMap = entityConfig.colorConfig;
+        const value = properties?.[fieldName];
+        //if (!value) return undefined;
+
+        if (colorMap[value]) {
+          return colorMap[value];
+        }
+
+        // "before:2025-01-01", "at:2025-07-09", "after:2025-08-01"
+        const dateValue = new Date(value);
+        if (isNaN(dateValue.getTime())) return undefined;
+
+        let matchedColor = undefined;
+
+        Object.entries(colorMap).forEach(([key, color]) => {
+          const [prefix, dateStr] = key.split(":");
+          const configDate = new Date(dateStr);
+          if (isNaN(configDate.getTime())) return;
+
+          if (prefix === "before" && dateValue < configDate) {
+            matchedColor = color;
+          } else if (
+            prefix === "at" &&
+            dateValue.toISOString().split("T")[0] ===
+              configDate.toISOString().split("T")[0]
+          ) {
+            matchedColor = color;
+          } else if (prefix === "after" && dateValue > configDate) {
+            matchedColor = color;
+          }
+        });
+
+        return matchedColor;
+      };
+
+      const createNode = (node: any) => {
+        const nodeId = node.elementId;
+        if (nodes.has(nodeId)) return;
+
         const label =
-          nodeA.properties.name || nodeA.properties.nickname || "Unnamed";
-        nodes.set(nodeA.elementId, {
-          id: nodeA.elementId,
-          label: label,
-          title: createNodeTooltip(nodeA.properties),
-          group: nodeA.labels[0].toLowerCase(),
-        });
-      }
+          node.properties.name || node.properties.nickname || "Unnamed";
+        const nodeType = node.labels[0]?.toLowerCase() || "generic";
+        const customColor = getCustomColor(nodeType, node.properties);
 
-      if (nodeB && !nodes.has(nodeB.elementId)) {
-        const label =
-          nodeB.properties.name || nodeB.properties.nickname || "Unnamed";
-        nodes.set(nodeB.elementId, {
-          id: nodeB.elementId,
-          label: label,
-          title: createNodeTooltip(nodeB.properties),
-          group: nodeB.labels[0].toLowerCase(),
+        nodes.set(nodeId, {
+          id: nodeId,
+          label,
+          title: createNodeTooltip(node.properties),
+          group: nodeType,
+          ...(customColor && {
+            color: {
+              background: customColor.background,
+              border: /*customColor.border ||*/ customColor.background,
+              highlight: {
+                background: customColor.background,
+                border: /*customColor.border ||*/ customColor.background,
+              },
+              hover: {
+                background: customColor.background,
+                border: /*customColor.border ||*/ customColor.background,
+              },
+            },
+          }),
         });
-      }
+      };
 
-      if (
-        relationship &&
-        relationship.startNodeElementId &&
-        relationship.endNodeElementId
-      ) {
-        edges.push({
-          id: relationship.elementId,
-          from: relationship.startNodeElementId,
-          to: relationship.endNodeElementId,
-          label: relationship.properties?.name || relationship.type,
-          arrows: "to",
-          title: createEdgeTooltip(relationship.properties),
-        });
-      }
-    });
+      results.forEach((record) => {
+        const nodeA = record.a;
+        const nodeB = record.b;
+        const relationship = record.e;
 
-    setGraphData({
-      nodes: Array.from(nodes.values()),
-      edges: edges,
-    });
-  }, []);
+        if (nodeA) createNode(nodeA);
+        if (nodeB) createNode(nodeB);
+
+        if (
+          relationship &&
+          relationship.startNodeElementId &&
+          relationship.endNodeElementId
+        ) {
+          const customEdgeColor = getCustomColor(
+            "flow",
+            relationship.properties
+          );
+
+          edges.push({
+            id: relationship.elementId,
+            from: relationship.startNodeElementId,
+            to: relationship.endNodeElementId,
+            label: relationship.properties?.name || relationship.type,
+            arrows: "to",
+            title: createEdgeTooltip(relationship.properties),
+            color: customEdgeColor
+              ? {
+                  color: customEdgeColor.background,
+                  highlight: customEdgeColor.background,
+                  hover: customEdgeColor.background,
+                  border: customEdgeColor.border || customEdgeColor.background,
+                  inherit: false,
+                }
+              : undefined,
+          });
+        }
+      });
+
+      setGraphData({
+        nodes: Array.from(nodes.values()),
+        edges,
+      });
+    },
+    [colorConfig]
+  );
 
   const handleApplicationSubmit = async (data: any) => {
     try {
@@ -750,59 +837,62 @@ export function NetworkGraph() {
     dataTransformedRef.current = dataTransformed;
   }, [dataTransformed]);
 
-
   /* Gestione Dropdown */
 
   const [query, setQuery] = useState("MATCH (a)-[e:flow]->(b) RETURN a, e, b");
   const [selectedInitiators, setSelectedInitiators] = useState<string[]>([]);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [initiatorTargetOperator, setInitiatorTargetOperator] =
-    useState<"AND" | "OR">("AND");
+  const [initiatorTargetOperator, setInitiatorTargetOperator] = useState<
+    "AND" | "OR"
+  >("AND");
 
   function updateQueryWithFilters(
-  baseQuery: string,
-  initiators: string[],
-  targets: string[],
-  labels: string[],
-  operator: "AND" | "OR"
-): string {
-  const filters: string[] = [];
+    baseQuery: string,
+    initiators: string[],
+    targets: string[],
+    labels: string[],
+    operator: "AND" | "OR"
+  ): string {
+    const filters: string[] = [];
 
-  const initiatorParts =
-    initiators.length > 0
-      ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
-      : "";
-  const targetParts =
-    targets.length > 0
-      ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
-      : "";
+    const initiatorParts =
+      initiators.length > 0
+        ? initiators.map((i) => `a.name CONTAINS "${i}"`).join(" OR ")
+        : "";
+    const targetParts =
+      targets.length > 0
+        ? targets.map((t) => `b.name CONTAINS "${t}"`).join(" OR ")
+        : "";
 
-  if (initiatorParts && targetParts) {
-    filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
-  } else if (initiatorParts) {
-    filters.push(`(${initiatorParts})`);
-  } else if (targetParts) {
-    filters.push(`(${targetParts})`);
+    if (initiatorParts && targetParts) {
+      filters.push(`(${initiatorParts}) ${operator} (${targetParts})`);
+    } else if (initiatorParts) {
+      filters.push(`(${initiatorParts})`);
+    } else if (targetParts) {
+      filters.push(`(${targetParts})`);
+    }
+
+    if (labels.length > 0) {
+      const labelFilter = labels
+        .map((l) => `e.labels CONTAINS "${l}"`)
+        .join(" OR ");
+      filters.push(`(${labelFilter})`);
+    }
+
+    // Regex per estrarre le parti principali della query
+    const matchPart =
+      baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || "";
+    const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || "";
+
+    const whereClause =
+      filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+
+    return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
   }
-
-  if (labels.length > 0) {
-    const labelFilter = labels.map(l => `e.labels CONTAINS "${l}"`).join(" OR ");
-    filters.push(`(${labelFilter})`);
-  }
-
-  // Regex per estrarre le parti principali della query
-  const matchPart = baseQuery.match(/MATCH[\s\S]*?(?=RETURN|WHERE)/i)?.[0].trim() || '';
-  const returnPart = baseQuery.match(/RETURN[\s\S]*$/i)?.[0].trim() || '';
-
-  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : '';
-
-  return [matchPart, whereClause, returnPart].filter(Boolean).join(" ");
-}
-
 
   useEffect(() => {
-    setQuery(q =>
+    setQuery((q) =>
       updateQueryWithFilters(
         q,
         selectedInitiators,
@@ -811,7 +901,12 @@ export function NetworkGraph() {
         initiatorTargetOperator
       )
     );
-  }, [selectedInitiators, selectedTargets, selectedLabels, initiatorTargetOperator]);
+  }, [
+    selectedInitiators,
+    selectedTargets,
+    selectedLabels,
+    initiatorTargetOperator,
+  ]);
 
   /** */
 
@@ -863,6 +958,36 @@ export function NetworkGraph() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>{isPhysicsEnabled ? "Disable" : "Enable"} physics</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsColorConfigOpen(true)}
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Configure colors</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setisValueFilterModalOpen(true)}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Filters</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1010,7 +1135,6 @@ export function NetworkGraph() {
                       data: flowData,
                       type: flowData.type,
                     });
-                    console.log(flowData);
                     setIsFlowDialogOpen(false);
                   }}
                 >
@@ -1045,6 +1169,41 @@ export function NetworkGraph() {
         description={`Are you sure you want to delete this ${isConfirmModalOpen.type}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+
+      <ColorConfigModal
+        isOpen={isColorConfigOpen}
+        onClose={() => setIsColorConfigOpen(false)}
+        onSave={(newConfig) => {
+          setColorConfig((prev) => {
+            const updated: typeof prev = { ...prev };
+            // Se Application non è presente in newConfig, rimuovila dal config
+            if (!newConfig.Application) {
+              delete updated.Application;
+            } else {
+              updated.Application = newConfig.Application;
+            }
+            // Stessa cosa per Flow
+            if (!newConfig.Flow) {
+              delete updated.Flow;
+            } else {
+              updated.Flow = newConfig.Flow;
+            }
+            return updated;
+          });
+        }}
+        //onReset={() => {
+        //setColorConfig({});
+        //}}
+        initialConfig={colorConfig}
+      />
+      <ValueFilterModal
+        isOpen={isValueFilterModalOpen}
+        onClose={() => setisValueFilterModalOpen(false)}
+        onSave={(cypher) => {
+          setQuery(cypher);
+          console.log("Cypher generata:", cypher);
+        }}
       />
     </div>
   );
