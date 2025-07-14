@@ -88,7 +88,7 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
     ) {
       tab.selectedValues.forEach((val) => {
         filters.push(
-          `toLower(toString(${nodeAlias}.${fieldName})) CONTAINS "${val.toLowerCase()}"`
+          `${nodeAlias}.${fieldName} CONTAINS "${val.toLowerCase()}"`
         );
       });
     }
