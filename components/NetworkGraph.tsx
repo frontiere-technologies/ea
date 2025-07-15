@@ -250,6 +250,26 @@ export function NetworkGraph() {
   const [isValueFilterModalOpen, setisValueFilterModalOpen] =
     useState<any>(false);
 
+  const defaultColorConfig = {
+    Application: {
+      fieldName: "criticality",
+      colorConfig: {
+        High: { background: "#f44336", border: "#f44336" },
+        Medium: { background: "#ff9800", border: "#ff9800" },
+        Low: { background: "#4caf50", border: "#4caf50" },
+        Critical: { background: "#ff0000", border: "#ff0000" },
+        Unknown: { background: "#9e9e9e", border: "#9e9e9e" },
+      },
+    },
+    Flow: {
+      fieldName: "intent",
+      colorConfig: {
+        read: { background: "#4caf50", border: "#4caf50" },
+        write: { background: "#f44336", border: "#f44336" },
+      },
+    },
+  };
+
   const [colorConfig, setColorConfig] = useState<{
     Application?: {
       fieldName: string;
@@ -259,7 +279,7 @@ export function NetworkGraph() {
       fieldName: string;
       colorConfig: Record<string, { background: string; border: string }>;
     };
-  }>({});
+  }>(defaultColorConfig);
 
   const handleQueryResults = useCallback(
     (results: any[]) => {

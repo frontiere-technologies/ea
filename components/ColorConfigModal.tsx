@@ -55,6 +55,31 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
       return out;
     };
     if (!initialConfig) {
+      if (et === "Application") {
+        return {
+          selectedField: applicationFields.find((f) => f.name === "criticality") || null,
+          colorConfig: {
+            High: { background: "#f44336", border: "#f44336" },
+            Medium: { background: "#ff9800", border: "#ff9800" },
+            Low: { background: "#4caf50", border: "#4caf50" },
+            Critical: { background: "#ff0000", border: "#ff0000" },
+            Unknown: { background: "#9e9e9e", border: "#9e9e9e" },
+          },
+          textInputValue: "",
+          dateInputValues: { before: "", at: "", after: "" },
+        };
+      }
+      if (et === "Flow") {
+        return {
+          selectedField: flowFields.find((f) => f.name === "intent") || null,
+          colorConfig: {
+            read: { background: "#4caf50", border: "#4caf50" },
+            write: { background: "#f44336", border: "#f44336" },
+          },
+          textInputValue: "",
+          dateInputValues: { before: "", at: "", after: "" },
+        };
+      }
       return {
         selectedField: null,
         colorConfig: {},
