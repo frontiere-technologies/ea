@@ -46,6 +46,12 @@ export function DrawingCollapsible({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    if (type == "images") {
+      items = items.map((item) => ({
+        ...item,
+        type: "image",
+      }));
+    }
     setList(items);
   }, [items]);
 
