@@ -301,7 +301,7 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
             </div>
           )}
 
-          <div className="flex justify-start mt-2">
+          {/*<div className="flex justify-start mt-2">
             <Button
               variant="outline"
               onClick={handleReset}
@@ -309,7 +309,7 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
             >
               Reset
             </Button>
-          </div>
+          </div>*/}
         </div>
 
         <DialogFooter className="mt-6 flex justify-between">

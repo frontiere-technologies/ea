@@ -366,7 +366,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             </div>
           )}
 
-          {/* Reset pulsante */}
+          {/* Reset pulsante 
           <div className="flex justify-start mt-2">
             <Button
               variant="outline"
@@ -375,7 +375,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             >
               Reset
             </Button>
-          </div>
+          </div>*/}
         </div>
 
         <DialogFooter className="mt-6 flex justify-between">
