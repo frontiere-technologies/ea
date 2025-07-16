@@ -133,7 +133,7 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] z-[400]">
         <DialogHeader>
-          <DialogTitle className="text-gray-800">Filter by Field</DialogTitle>
+          <DialogTitle className="text-gray-800">Filter by field</DialogTitle>
           <DialogDescription className="text-sm text-gray-500 mt-1">
             Select an entity, choose a field and filter its values.
           </DialogDescription>

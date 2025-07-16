@@ -908,6 +908,21 @@ export function NetworkGraph() {
     initiatorTargetOperator,
   ]);
 
+
+  async function refreshGraph() {
+    const results = await executeQuery(query, {});
+    handleQueryResults(results);
+  }
+
+  const [pendingRefresh, setPendingRefresh] = useState(false);
+
+useEffect(() => {
+  if (pendingRefresh) {
+    refreshGraph();
+    setPendingRefresh(false);
+  }
+}, [pendingRefresh]);
+
   /** */
 
   return (
@@ -1191,6 +1206,7 @@ export function NetworkGraph() {
             }
             return updated;
           });
+          setPendingRefresh(true)
         }}
         //onReset={() => {
         //setColorConfig({});
