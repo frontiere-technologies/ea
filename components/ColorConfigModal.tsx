@@ -36,6 +36,9 @@ interface ColorConfigModalProps {
   };
 }
 
+const getRandomColor = () =>
+  `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")}`;
+
 const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
   isOpen,
   onClose,
@@ -44,7 +47,6 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
 }) => {
   const [entityType, setEntityType] = useState<EntityType>("Application");
 
-  // Funzione helper per ottenere lo stato iniziale di un tab dall'initialConfig
   const getInitialTabState = (et: EntityType): TabState => {
     const extractDates = (cfg: Record<string, any>) => {
       const out = { before: "", at: "", after: "" };
@@ -65,16 +67,22 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
     if (et === "Application" && initialConfig.Application) {
       return {
         selectedField:
-          applicationFields.find((f) => f.name === initialConfig.Application!.fieldName) || null,
+          applicationFields.find(
+            (f) => f.name === initialConfig.Application!.fieldName
+          ) || null,
         colorConfig: initialConfig.Application.colorConfig || {},
         textInputValue: "",
-        dateInputValues: extractDates(initialConfig.Application.colorConfig),
+        dateInputValues: extractDates(
+          initialConfig.Application.colorConfig
+        ),
       };
     }
     if (et === "Flow" && initialConfig.Flow) {
       return {
         selectedField:
-          flowFields.find((f) => f.name === initialConfig.Flow!.fieldName) || null,
+          flowFields.find(
+            (f) => f.name === initialConfig.Flow!.fieldName
+          ) || null,
         colorConfig: initialConfig.Flow.colorConfig || {},
         textInputValue: "",
         dateInputValues: extractDates(initialConfig.Flow.colorConfig),
@@ -96,10 +104,8 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
     Flow: getInitialTabState("Flow"),
   });
 
-  // Aggiorno stato quando la modale si apre o cambia initialConfig
   useEffect(() => {
     if (!isOpen) {
-      // resetta tutto quando chiuso
       setTabsState({
         Application: {
           selectedField: null,
@@ -117,8 +123,6 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
       setEntityType("Application");
       return;
     }
-
-    // inizializza stato da initialConfig
     setTabsState({
       Application: getInitialTabState("Application"),
       Flow: getInitialTabState("Flow"),
@@ -126,7 +130,8 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
     setEntityType("Application");
   }, [isOpen, initialConfig]);
 
-  const fields = entityType === "Application" ? applicationFields : flowFields;
+  const fields =
+    entityType === "Application" ? applicationFields : flowFields;
   const curr = tabsState[entityType];
 
   const updateState = (patch: Partial<TabState>) => {
@@ -136,7 +141,11 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
     }));
   };
 
-  const onColorChange = (value: string, type: "background" | "border", color: string) => {
+  const onColorChange = (
+    value: string,
+    type: "background" | "border",
+    color: string
+  ) => {
     updateState({
       colorConfig: {
         ...curr.colorConfig,
@@ -145,16 +154,51 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
     });
   };
 
-  const handleReset = () => {
-    setTabsState((prev) => ({
-      ...prev,
-      [entityType]: {
-        selectedField: null,
-        colorConfig: {},
-        textInputValue: "",
-      },
-    }));
-    //if (onReset) onReset();
+  const applyRandomColors = () => {
+    const newConfig: Record<string, { background: string; border: string }> =
+      {};
+
+    if (
+      curr.selectedField?.type === "select" &&
+      curr.selectedField.options
+    ) {
+      curr.selectedField.options.forEach(({ value }) => {
+        newConfig[value] = {
+          background: getRandomColor(),
+          border: getRandomColor(),
+        };
+      });
+    }
+    if (curr.selectedField?.type === "switch") {
+      ["true", "false"].forEach((v) => {
+        newConfig[v] = {
+          background: getRandomColor(),
+          border: getRandomColor(),
+        };
+      });
+    }
+    if (curr.selectedField?.type === "date") {
+      Object.entries(curr.dateInputValues).forEach(([cmp, val]) => {
+        if (val) {
+          newConfig[`${cmp}:${val}`] = {
+            background: getRandomColor(),
+            border: getRandomColor(),
+          };
+        }
+      });
+    }
+    if (
+      curr.selectedField?.type === "text" ||
+      curr.selectedField?.type === "rich-text"
+    ) {
+      Object.keys(curr.colorConfig).forEach((k) => {
+        newConfig[k] = {
+          background: getRandomColor(),
+          border: getRandomColor(),
+        };
+      });
+    }
+    updateState({ colorConfig: newConfig });
   };
 
   const handleSave = () => {
@@ -181,6 +225,7 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             Select an entity, choose a field and assign colors to its values.
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4 mt-4">
           {/* tabs */}
           <div className="flex gap-4 border-b border-gray-200">
@@ -198,13 +243,15 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
               </button>
             ))}
           </div>
+
           {/* field select */}
           <div>
             <label className="block mb-1 text-sm text-gray-700">Field</label>
             <select
               value={curr.selectedField?.name || ""}
               onChange={(e) => {
-                const f = fields.find((f) => f.name === e.target.value) || null;
+                const f =
+                  fields.find((f) => f.name === e.target.value) || null;
                 updateState({
                   selectedField: f,
                   colorConfig: {},
@@ -228,30 +275,51 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
           {/* configurator */}
           {curr.selectedField && (
             <div>
-              {curr.selectedField.type === "select" && curr.selectedField.options && (
-                <div className="space-y-2 border border-gray-200 p-3 rounded">
-                  {curr.selectedField.options.map(({ value, label }) => (
-                    <div key={value} className="flex items-center gap-2">
-                      <span className="flex-1 text-sm text-gray-700">{label}</span>
-                      <input
-                        type="color"
-                        value={curr.colorConfig[value]?.background || "#000000"}
-                        onChange={(e) => onColorChange(value, "background", e.target.value)}
-                        className="w-8 h-7"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {curr.selectedField.type === "select" &&
+                curr.selectedField.options && (
+                  <div
+                    className="space-y-2 border border-gray-200 p-3 rounded"
+                  >
+                    {curr.selectedField.options.map(({ value, label }) => (
+                      <div key={value} className="flex items-center gap-2">
+                        <span className="flex-1 text-sm text-gray-700">
+                          {label}
+                        </span>
+                        <input
+                          type="color"
+                          value={
+                            curr.colorConfig[value]?.background ||
+                            "#000000"
+                          }
+                          onChange={(e) =>
+                            onColorChange(
+                              value,
+                              "background",
+                              e.target.value
+                            )
+                          }
+                          className="w-8 h-7"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               {curr.selectedField.type === "switch" && (
                 <div className="space-y-2 border border-gray-200 p-3 rounded">
                   {["true", "false"].map((v) => (
                     <div key={v} className="flex items-center gap-2">
-                      <span className="flex-1 text-sm text-gray-700">{v}</span>
+                      <span className="flex-1 text-sm text-gray-700">
+                        {v}
+                      </span>
                       <input
                         type="color"
-                        value={curr.colorConfig[v]?.background || "#000000"}
-                        onChange={(e) => onColorChange(v, "background", e.target.value)}
+                        value={
+                          curr.colorConfig[v]?.background ||
+                          "#000000"
+                        }
+                        onChange={(e) =>
+                          onColorChange(v, "background", e.target.value)
+                        }
                         className="w-8 h-7"
                       />
                     </div>
@@ -262,11 +330,19 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
                 <div className="space-y-2 border border-gray-200 p-3 rounded">
                   {(["before", "at", "after"] as const).map((cmp) => {
                     const val = curr.dateInputValues[cmp];
-                    const min = cmp === "at" ? curr.dateInputValues.before || undefined : undefined;
-                    const max = cmp === "at" ? curr.dateInputValues.after || undefined : undefined;
+                    const min =
+                      cmp === "at"
+                        ? curr.dateInputValues.before || undefined
+                        : undefined;
+                    const max =
+                      cmp === "at"
+                        ? curr.dateInputValues.after || undefined
+                        : undefined;
                     return (
                       <div key={cmp} className="flex items-center gap-2">
-                        <span className="w-20 text-sm text-gray-700">{cmp}</span>
+                        <span className="w-20 text-sm text-gray-700">
+                          {cmp}
+                        </span>
                         <input
                           type="date"
                           value={val}
@@ -275,11 +351,17 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
                           onChange={(e) => {
                             const d = e.target.value;
                             updateState({
-                              dateInputValues: { ...curr.dateInputValues, [cmp]: d },
+                              dateInputValues: {
+                                ...curr.dateInputValues,
+                                [cmp]: d,
+                              },
                               colorConfig: {
                                 ...curr.colorConfig,
                                 [`${cmp}:${d}`]:
-                                  curr.colorConfig[`${cmp}:${d}`] || { background: "#000000", border: "#000000" },
+                                  curr.colorConfig[`${cmp}:${d}`] || {
+                                    background: "#000000",
+                                    border: "#000000",
+                                  },
                               },
                             });
                           }}
@@ -287,8 +369,17 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
                         />
                         <input
                           type="color"
-                          value={curr.colorConfig[`${cmp}:${val}`]?.background || "#000000"}
-                          onChange={(e) => onColorChange(`${cmp}:${val}`, "background", e.target.value)}
+                          value={
+                            curr.colorConfig[`${cmp}:${val}`]?.background ||
+                            "#000000"
+                          }
+                          onChange={(e) =>
+                            onColorChange(
+                              `${cmp}:${val}`,
+                              "background",
+                              e.target.value
+                            )
+                          }
                           className="w-8 h-7"
                         />
                       </div>
@@ -296,56 +387,78 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
                   })}
                 </div>
               )}
-              {(curr.selectedField.type === "text" || curr.selectedField.type === "rich-text") && (
+              {(curr.selectedField.type === "text" ||
+                curr.selectedField.type === "rich-text") && (
                 <div className="space-y-2 border border-gray-200 p-3 rounded">
-                  {Object.entries(curr.colorConfig).map(([v, cfg]) => (
-                    <div key={v} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={v}
-                        className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50 text-gray-700"
-                      />
-                      <input
-                        type="color"
-                        value={cfg.background}
-                        onChange={(e) => onColorChange(v, "background", e.target.value)}
-                        className="w-8 h-7"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const cc = { ...curr.colorConfig };
-                          delete cc[v];
-                          updateState({ colorConfig: cc });
-                        }}
-                        className="text-gray-400 hover:text-red-500 text-sm px-1"
+                  {Object.entries(curr.colorConfig).map(
+                    ([v, cfg]) => (
+                      <div
+                        key={v}
+                        className="flex items-center gap-2"
                       >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                        <input
+                          type="text"
+                          readOnly
+                          value={v}
+                          className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50 text-gray-700"
+                        />
+                        <input
+                          type="color"
+                          value={cfg.background}
+                          onChange={(e) =>
+                            onColorChange(
+                              v,
+                              "background",
+                              e.target.value
+                            )
+                          }
+                          className="w-8 h-7"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cc = { ...curr.colorConfig };
+                            delete cc[v];
+                            updateState({ colorConfig: cc });
+                          }}
+                          className="text-gray-400 hover:text-red-500 text-sm px-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )
+                  )}
                   <div
                     className={`flex items-center gap-2 pt-2 mt-2 ${
-                      Object.keys(curr.colorConfig).length > 0 ? "border-t border-gray-200" : ""
+                      Object.keys(curr.colorConfig).length > 0
+                        ? "border-t border-gray-200"
+                        : ""
                     }`}
                   >
                     <input
                       type="text"
                       placeholder="Add value"
                       value={curr.textInputValue}
-                      onChange={(e) => updateState({ textInputValue: e.target.value })}
+                      onChange={(e) =>
+                        updateState({
+                          textInputValue: e.target.value,
+                        })
+                      }
                       className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm text-gray-700"
                     />
                     <button
                       type="button"
                       onClick={() => {
-                        const nv = curr.textInputValue.trim();
+                        const nv =
+                          curr.textInputValue.trim();
                         if (!nv || curr.colorConfig[nv]) return;
                         updateState({
                           colorConfig: {
                             ...curr.colorConfig,
-                            [nv]: { background: "#000000", border: "#000000" },
+                            [nv]: {
+                              background: "#000000",
+                              border: "#000000",
+                            },
                           },
                           textInputValue: "",
                         });
@@ -366,17 +479,21 @@ const ColorConfigModal: React.FC<ColorConfigModalProps> = ({
             </div>
           )}
 
-          {/* Reset pulsante 
-          <div className="flex justify-start mt-2">
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="text-sm border-gray-300 text-gray-700 hover:bg-gray-100"
-            >
-              Reset
-            </Button>
-          </div>*/}
         </div>
+
+          {/* pulsante Random */}
+          {curr.selectedField && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm text-gray-700 border-gray-300 hover:bg-gray-100"
+                onClick={applyRandomColors}
+              >
+                Random
+              </Button>
+            </div>
+          )}
 
         <DialogFooter className="mt-6 flex justify-between">
           <Button
