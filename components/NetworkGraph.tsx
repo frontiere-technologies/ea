@@ -259,7 +259,46 @@ export function NetworkGraph() {
       fieldName: string;
       colorConfig: Record<string, { background: string; border: string }>;
     };
-  }>({});
+  }>({
+    Application: {
+      fieldName: "criticality",
+      colorConfig: {
+        Critical: {
+          background: "#fe0606",
+          border: "#fe0606",
+        },
+        High: {
+          background: "#ff9705",
+          border: "#ff9705",
+        },
+        Medium: {
+          background: "#ffd500",
+          border: "#ffd500",
+        },
+        Low: {
+          background: "#99fe01",
+          border: "#99fe01",
+        },
+        Unknown: {
+          background: "#14e1d4",
+          border: "#14e1d4",
+        },
+      },
+    },
+    Flow: {
+      fieldName: "api_gateway",
+      colorConfig: {
+        true: {
+          background: "#5cf50a",
+          border: "#5cf50a",
+        },
+        false: {
+          background: "#f40b0b",
+          border: "#f40b0b",
+        },
+      },
+    },
+  });
 
   const handleQueryResults = useCallback(
     (results: any[]) => {
@@ -274,6 +313,8 @@ export function NetworkGraph() {
         const entityConfig =
           colorConfig[type === "application" ? "Application" : "Flow"];
         if (!entityConfig || !entityConfig.fieldName) return undefined;
+
+        console.log(colorConfig);
 
         const fieldName = entityConfig.fieldName;
         const colorMap = entityConfig.colorConfig;
@@ -908,7 +949,6 @@ export function NetworkGraph() {
     initiatorTargetOperator,
   ]);
 
-
   async function refreshGraph() {
     const results = await executeQuery(query, {});
     handleQueryResults(results);
@@ -916,12 +956,12 @@ export function NetworkGraph() {
 
   const [pendingRefresh, setPendingRefresh] = useState(false);
 
-useEffect(() => {
-  if (pendingRefresh) {
-    refreshGraph();
-    setPendingRefresh(false);
-  }
-}, [pendingRefresh]);
+  useEffect(() => {
+    if (pendingRefresh) {
+      refreshGraph();
+      setPendingRefresh(false);
+    }
+  }, [pendingRefresh]);
 
   /** */
 
@@ -1206,7 +1246,7 @@ useEffect(() => {
             }
             return updated;
           });
-          setPendingRefresh(true)
+          setPendingRefresh(true);
         }}
         //onReset={() => {
         //setColorConfig({});
