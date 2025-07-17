@@ -308,20 +308,24 @@ export function DrawingEditor() {
     });
   };
 
-  function getRelationships(nodeA: string, nodeB: string) {
+  function getRelationships(idShapeA: string, nodeA: string, idShapeB:string, nodeB: string) {
     const editor = editorRef.current;
     if (!editor) return;
 
-    const shapeAId = `shape:${nodeA}`;
-    const shapeBId = `shape:${nodeB}`;
+    //const shapeAId = idShapeA; //`shape:${nodeA}`;
+    //const shapeBId = idShapeB; //`shape:${nodeB}`;
 
-    const shapeA = editor.getShape(shapeAId);
-    const shapeB = editor.getShape(shapeBId);
+    const shapeA = editor.getShape(idShapeA);
+    const shapeB = editor.getShape(idShapeB);
+    const objShapes: Record<string, string> = {};
 
     if (!shapeA || !shapeB) {
       toast.error("Shapes not found on canvas");
       return;
     }
+    
+    objShapes[nodeA] = idShapeA;
+    objShapes[nodeB] = idShapeB;
 
     getNodesRelationships({ idA: nodeA, idB: nodeB }).then((result) => {
       if (!result || result.length === 0) {
@@ -348,17 +352,22 @@ export function DrawingEditor() {
         isForward: boolean
       ) => {
         const flowId = rel.r.properties.flow_id;
+        const flowIdUnique = "shape:" + flowId + `${crypto.randomUUID()}`;
         const name = rel.r.properties.name ?? "Connection";
         const from = rel.r.properties.initiator_application;
         const to = rel.r.properties.target_application;
 
-        const fromShapeId = `shape:${from}`;
-        const toShapeId = `shape:${to}`;
+        const fromShapeId = objShapes[from]; //`shape:${from}`;
+        const toShapeId = objShapes[to]; //`shape:${to}`;
+
+        //console.log("from ", objShapes[from])
+        //console.log("to ", objShapes[to])
 
         // Evita di creare shape o binding se esistono già
-        if (!editor.getShape(`shape:${flowId}`)) {
+        //if (!editor.getShape(`shape:${flowId}`)) {
+
           editor.createShape({
-            id: `shape:${flowId}`,
+            id: flowIdUnique,
             type: "arrow",
             props: {
               text: name,
@@ -371,18 +380,18 @@ export function DrawingEditor() {
 
           editor.createBinding({
             type: "arrow",
-            fromId: `shape:${flowId}`,
+            fromId: flowIdUnique,
             toId: fromShapeId,
             props: { terminal: "start" },
           });
 
           editor.createBinding({
             type: "arrow",
-            fromId: `shape:${flowId}`,
+            fromId: flowIdUnique,
             toId: toShapeId,
             props: { terminal: "end" },
           });
-        }
+        //}
       };
 
       forward.forEach((rel: any, i: number) =>
@@ -515,8 +524,10 @@ export function DrawingEditor() {
 
                   const [shape1, shape2] = shapes;
                   getRelationships(
-                    shape1.id.replace(/^shape:/, ""),
-                    shape2.id.replace(/^shape:/, "")
+                    shape1.id,
+                    shape1.meta.data.id.replace(/^shape:/, ""),
+                    shape2.id,
+                    shape2.meta.data.id.replace(/^shape:/, "")
                   );
                 }}
               />
@@ -890,6 +901,7 @@ export function DrawingEditor() {
         }
       }
       else if (item.type === "shape") {
+        /* Rimossa logica per cui non si possano avere 2 applicazioni uguali sul canvas
         const existingShape = editor
           .getCurrentPageShapes()
           .find((shape: any) => shape.meta?.data?.id === item.id);
@@ -897,16 +909,16 @@ export function DrawingEditor() {
         if (existingShape) {
           toast.info("This application is already on the canvas.");
           return;
-        }
+        }*/
 
         setDragDropApplications((prev) =>
           prev.map((app) =>
-            app.id === item.id ? { ...app, selected: !app.selected } : app
+            app.id === item.id ? { ...app, selected: false /*!app.selected*/ } : app
           )
         );
 
         editor.createShape({
-          id: `shape:${item.id}`,
+          id: `shape:${item.id}@${crypto.randomUUID()}`,
           type: "application",
           x: dropPoint.x,
           y: dropPoint.y,
