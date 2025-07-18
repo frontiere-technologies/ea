@@ -69,14 +69,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
     }));
   };
 
-  const handleReset = () => {
-    setTabsState((prev) => ({
-      ...prev,
-      [entityType]: getInitialTabState(),
-    }));
-  };
-
-  const handleSave = () => {
   const buildFilters = (tab: TabState, nodeAlias: string): string[] => {
     const filters: string[] = [];
     const fieldName = tab.selectedField?.name;
@@ -87,9 +79,7 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
       tab.selectedValues.length > 0
     ) {
       tab.selectedValues.forEach((val) => {
-        filters.push(
-          `${nodeAlias}.${fieldName} CONTAINS "${val.toLowerCase()}"`
-        );
+        filters.push(`${nodeAlias}.${fieldName} CONTAINS "${val.toLowerCase()}"`);
       });
     }
 
@@ -108,26 +98,28 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
     return filters;
   };
 
-  const appFilters = buildFilters(tabsState.Application, "a");
-  const flowFilters = buildFilters(tabsState.Flow, "e");
+  const handleSave = () => {
+    const appFilters = buildFilters(tabsState.Application, "a");
+    const flowFilters = buildFilters(tabsState.Flow, "e");
 
-  if (appFilters.length === 0 && flowFilters.length === 0) return;
+    if (appFilters.length === 0 && flowFilters.length === 0) return;
 
-  const whereClauses: string[] = [];
-  if (appFilters.length > 0) whereClauses.push(`(${appFilters.join(" OR ")})`);
-  if (flowFilters.length > 0) whereClauses.push(`(${flowFilters.join(" OR ")})`);
+    const whereClauses: string[] = [];
+    if (appFilters.length > 0) whereClauses.push(`(${appFilters.join(" OR ")})`);
+    if (flowFilters.length > 0) whereClauses.push(`(${flowFilters.join(" OR ")})`);
 
-  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+    const whereClause =
+      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
-  const cypherQuery = `MATCH (a)-[e:flow]->(b) ${whereClause} RETURN a, e, b`;
+    const cypherQuery = `MATCH (a)-[e:flow]->(b) ${whereClause} RETURN a, e, b`;
 
-  onSave(cypherQuery.trim());
-  onClose();
-};
+    onSave(cypherQuery.trim());
+    onClose();
+  };
 
-
-
-
+  const isSaveDisabled =
+    buildFilters(tabsState.Application, "a").length === 0 &&
+    buildFilters(tabsState.Flow, "e").length === 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -184,7 +176,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
 
           {curr.selectedField && (
             <div>
-              {/* Boolean Switch */}
               {curr.selectedField.type === "switch" && (
                 <div className="flex items-center gap-2 border border-gray-200 p-3 rounded">
                   <input
@@ -201,7 +192,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
                 </div>
               )}
 
-              {/* Select Field */}
               {curr.selectedField.type === "select" &&
                 curr.selectedField.options?.map(({ value, label }) => (
                   <div
@@ -222,7 +212,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
                   </div>
                 ))}
 
-              {/* Text Fields */}
               {["text", "rich-text"].includes(curr.selectedField.type) && (
                 <div className="space-y-2 border border-gray-200 p-3 rounded">
                   {curr.selectedValues.map((val) => (
@@ -275,7 +264,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
                 </div>
               )}
 
-              {/* Date Field */}
               {curr.selectedField.type === "date" && (
                 <div className="space-y-2 border border-gray-200 p-3 rounded">
                   {(["before", "at", "after"] as const).map((cmp) => (
@@ -300,16 +288,6 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
               )}
             </div>
           )}
-
-          {/*<div className="flex justify-start mt-2">
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="text-sm border-gray-300 text-gray-700 hover:bg-gray-100"
-            >
-              Reset
-            </Button>
-          </div>*/}
         </div>
 
         <DialogFooter className="mt-6 flex justify-between">
@@ -322,7 +300,12 @@ const ValueFilterModal: React.FC<ValueFilterModalProps> = ({
           </Button>
           <Button
             onClick={handleSave}
-            className="text-sm bg-gray-800 text-white hover:bg-gray-700"
+            disabled={isSaveDisabled}
+            className={`text-sm text-white ${
+              isSaveDisabled
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gray-800 hover:bg-gray-700"
+            }`}
           >
             Save
           </Button>
