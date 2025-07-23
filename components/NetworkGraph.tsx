@@ -259,7 +259,46 @@ export function NetworkGraph() {
       fieldName: string;
       colorConfig: Record<string, { background: string; border: string }>;
     };
-  }>({});
+  }>({
+    Application: {
+      fieldName: "criticality",
+      colorConfig: {
+        Critical: {
+          background: "#fe0606",
+          border: "#fe0606",
+        },
+        High: {
+          background: "#ff9705",
+          border: "#ff9705",
+        },
+        Medium: {
+          background: "#ffd500",
+          border: "#ffd500",
+        },
+        Low: {
+          background: "#99fe01",
+          border: "#99fe01",
+        },
+        Unknown: {
+          background: "#14e1d4",
+          border: "#14e1d4",
+        },
+      },
+    },
+    Flow: {
+      fieldName: "api_gateway",
+      colorConfig: {
+        true: {
+          background: "#5cf50a",
+          border: "#5cf50a",
+        },
+        false: {
+          background: "#f40b0b",
+          border: "#f40b0b",
+        },
+      },
+    },
+  });
 
   const handleQueryResults = useCallback(
     (results: any[]) => {
@@ -274,6 +313,8 @@ export function NetworkGraph() {
         const entityConfig =
           colorConfig[type === "application" ? "Application" : "Flow"];
         if (!entityConfig || !entityConfig.fieldName) return undefined;
+
+        console.log(colorConfig);
 
         const fieldName = entityConfig.fieldName;
         const colorMap = entityConfig.colorConfig;
@@ -908,13 +949,27 @@ export function NetworkGraph() {
     initiatorTargetOperator,
   ]);
 
+  async function refreshGraph() {
+    const results = await executeQuery(query, {});
+    handleQueryResults(results);
+  }
+
+  const [pendingRefresh, setPendingRefresh] = useState(false);
+
+  useEffect(() => {
+    if (pendingRefresh) {
+      refreshGraph();
+      setPendingRefresh(false);
+    }
+  }, [pendingRefresh]);
+
   /** */
 
   return (
     <div className="w-full h-full border rounded-lg bg-card flex flex-col">
-      <div className="p-2 border-b flex items-center justify-between">
+      <div className="p-2 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
         {/* Gruppo pulsanti */}
-        <div className="flex gap-2">
+        <div className="flex flex-row flex-wrap gap-2 w-full md:w-auto">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -993,7 +1048,7 @@ export function NetworkGraph() {
           </TooltipProvider>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
           <MultiselectDropdown
             options={appLabels || []}
             onChange={setSelectedInitiators}
@@ -1004,6 +1059,7 @@ export function NetworkGraph() {
             onClick={() =>
               setInitiatorTargetOperator((op) => (op === "AND" ? "OR" : "AND"))
             }
+            style={{width: "fit-content"}}
           >
             {initiatorTargetOperator}
           </Button>
@@ -1191,6 +1247,7 @@ export function NetworkGraph() {
             }
             return updated;
           });
+          setPendingRefresh(true);
         }}
         //onReset={() => {
         //setColorConfig({});
