@@ -67,21 +67,26 @@ type TableData = {
 const options = {
   nodes: {
     shape: "box",
-    font: { size: 16 },
+    font: { size: 32, face: "Inter, Arial, sans-serif", bold: "bold" },
     shadow: true,
+    margin: { top: 24, right: 24, bottom: 24, left: 24 },
+    widthConstraint: { minimum: 120, maximum: 300 },
+    heightConstraint: { minimum: 60 },
+    borderWidth: 1,
   },
   edges: {
-    font: { size: 12, align: "middle" },
+    font: { size: 22, align: "middle", bold: "bold" },
     color: { color: "#848484", highlight: "#848484" },
-    width: 2,
-    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+    width: 5,
+    arrows: { to: { enabled: true, scaleFactor: 1 } },
+    smooth: { enabled: true, type: "dynamic", roundness: 0.5 },
   },
   physics: {
     enabled: true,
     barnesHut: {
-      gravitationalConstant: -2000,
+      gravitationalConstant: -12000,
       centralGravity: 0.3,
-      springLength: 200,
+      springLength: 500,
       springConstant: 0.04,
     },
     stabilization: {
@@ -619,9 +624,9 @@ export function NetworkGraph() {
         physics: {
           enabled: newPhysicsState,
           barnesHut: {
-            gravitationalConstant: -2000,
+            gravitationalConstant: -12000,
             centralGravity: 0.3,
-            springLength: 200,
+            springLength: 600,
             springConstant: 0.04,
           },
           stabilization: {
