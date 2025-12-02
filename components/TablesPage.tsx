@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -162,21 +162,21 @@ export function TablesPage() {
     });
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
       await Promise.all([fetchApplications(), fetchFlows()]);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchAllData();
   }, []);
 
   useEffect(() => {
-    if (tableShown == "applications") {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  useEffect(() => {
+    if (tableShown === "applications") {
       setColumns(appColumns);
     } else {
       setColumns(flowColumns);
@@ -260,7 +260,7 @@ export function TablesPage() {
   }
 
   const openDialog = (tableShown: string, rowId: string) => {
-    if (tableShown == "applications") {
+    if (tableShown === "applications") {
       setApplicationData(
         cleanObj(applications.find((obj) => obj.id === rowId)),
       );
@@ -421,7 +421,7 @@ export function TablesPage() {
 
     setIsLoading(true);
 
-    if (type == "flow") {
+    if (type === "flow") {
       deleteFlow(data).then((result) => {
         if (result) {
           toast.success("Flow deleted successfully");
@@ -430,7 +430,7 @@ export function TablesPage() {
           toast.error("Error deleting the flow");
         }
       });
-    } else if (type == "application") {
+    } else if (type === "application") {
       deleteApplication(data).then((result) => {
         if (result) {
           toast.success("Application deleted successfully");
