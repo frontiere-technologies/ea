@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.projectName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.projectName }}
+spec:
+  type: {{ .Values.service.type | default "LoadBalancer" }}
+  ports:
+    - name: {{ .Values.service.portName | default "tcp-port" }}
+      protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+  selector:
+    app: {{ .Values.projectName }}

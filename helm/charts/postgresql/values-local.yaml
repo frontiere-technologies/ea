@@ -1,0 +1,37 @@
+# PostgreSQL values per k3d (locale)
+# Configurazione minima per ambiente di sviluppo
+
+# Autenticazione
+auth:
+  postgresPassword: "postgres"
+  username: "app_user"
+  password: "app_password"
+  database: "app_db"
+
+# Architettura standalone (no replication)
+architecture: standalone
+
+# Primary configuration
+primary:
+  # Risorse minime per sviluppo locale
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  # Persistence
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: "local-path"  # k3d default storage class
+
+# Metriche disabilitate per ambiente locale
+metrics:
+  enabled: false
+
+# Volumepermissions non necessari in k3d
+volumePermissions:
+  enabled: false
