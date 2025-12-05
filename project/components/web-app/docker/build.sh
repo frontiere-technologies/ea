@@ -2,7 +2,7 @@
 
 # Example of DOCKER_IMAGE_NAME and DOCKER_IMAGE_VERSION:
 DOCKER_IMAGE_NAME=ea/web-app
-DOCKER_IMAGE_VERSION=1.0.0-local
+DOCKER_IMAGE_VERSION=latest
 
 #set -a; source .env; set +a;
 

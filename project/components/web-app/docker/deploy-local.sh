@@ -4,7 +4,7 @@ set -e
 
 # Configuration
 DOCKER_IMAGE_NAME=ea/web-app
-DOCKER_IMAGE_VERSION=1.0.0-local
+DOCKER_IMAGE_VERSION=latest
 K3D_CLUSTER=ea-cluster
 NAMESPACE=ns-ea
 HELM_RELEASE=web-app
@@ -68,6 +68,12 @@ helm upgrade --install ${HELM_RELEASE} ../../../helm/charts/web-app \
   --namespace ${NAMESPACE} \
   --create-namespace \
   -f ../../../helm/charts/web-app/values-local.yaml
+
+# Step 4: Force pod restart to pull latest image
+echo ""
+echo "[4/4] Restarting pods to pull latest image..."
+kubectl rollout restart deployment/${HELM_RELEASE} -n ${NAMESPACE}
+kubectl rollout status deployment/${HELM_RELEASE} -n ${NAMESPACE} --timeout=60s
 
 echo ""
 echo "=================================="

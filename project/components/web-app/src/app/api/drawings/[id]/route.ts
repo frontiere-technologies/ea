@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/drizzle";
+import { eaDrawings } from "@/lib/drizzle/schema";
+import { eq } from "drizzle-orm";
 
 export async function PUT(
   request: Request,
@@ -7,14 +9,14 @@ export async function PUT(
 ) {
   try {
     const data = await request.json();
-    const drawing = await prisma.eaDrawing.update({
-      where: { id: parseInt(params.id) },
-      data: {
+    const [drawing] = await db.update(eaDrawings)
+      .set({
         filename: data.name || null,
         drawings: data.content || null,
         version: data.version || null,
-      },
-    });
+      })
+      .where(eq(eaDrawings.id, parseInt(params.id)))
+      .returning();
     
     return NextResponse.json(drawing);
   } catch (error: any) {
@@ -31,9 +33,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.eaDrawing.delete({
-      where: { id: parseInt(params.id) },
-    });
+    await db.delete(eaDrawings)
+      .where(eq(eaDrawings.id, parseInt(params.id)));
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting drawing:", error.message);

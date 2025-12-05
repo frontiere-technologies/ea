@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { executeQuery } from "@/lib/neo4j";
 
+// Force dynamic rendering to ensure environment variables are read at runtime
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     // Fetch all applications and their relationships

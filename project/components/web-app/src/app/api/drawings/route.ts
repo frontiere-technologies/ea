@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/drizzle";
+import { eaDrawings } from "@/lib/drizzle/schema";
+import { desc } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const drawings = await prisma.eaDrawing.findMany({
-      orderBy: {
-        id: 'desc'
-      }
-    });
+    const drawings = await db.select().from(eaDrawings).orderBy(desc(eaDrawings.id));
     
     return NextResponse.json(drawings);
   } catch (error: any) {
@@ -22,14 +20,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const drawing = await prisma.eaDrawing.create({
-      data: {
-        user_id: data.user_id || null,
-        filename: data.name || null,
-        version: data.version || 1,
-        drawings: data.content || null,
-      },
-    });
+    const [drawing] = await db.insert(eaDrawings).values({
+      userId: data.user_id || null,
+      filename: data.name || null,
+      version: data.version || 1,
+      drawings: data.content || null,
+    }).returning();
     
     return NextResponse.json(drawing, {
       headers: {

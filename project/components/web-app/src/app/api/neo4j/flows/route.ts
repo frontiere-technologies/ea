@@ -8,6 +8,10 @@ import {
   getFlows
 } from "@/lib/neo4jUtils";
 
+// Force dynamic rendering to ensure environment variables are read at runtime
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

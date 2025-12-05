@@ -32,7 +32,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY public public
 COPY src src
-COPY prisma prisma
+COPY drizzle drizzle
+COPY scripts scripts
 COPY *.json ./
 COPY *.cjs ./
 COPY *.js ./
@@ -73,10 +74,13 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files for migrations at runtime
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+# Copy Drizzle migrations and scripts for application runtime
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+
+# Copy necessary node_modules for migrations (drizzle-orm and postgres)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres ./node_modules/postgres
 
 COPY docker/entrypoint.sh /
 RUN chown nextjs:nodejs /entrypoint.sh

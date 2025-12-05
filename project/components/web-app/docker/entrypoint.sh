@@ -16,6 +16,11 @@ for VAR in ${NEXT_VARIABLES}; do
         sed -e 's|REPLACE_ME_'"${VAR}"'|'"${VAL}"'|g' -i {} +
 done
 
+# Run Drizzle migrations before starting the server
+echo "Running database migrations..."
+node scripts/migrate.js
+
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
+echo "Starting Next.js server..."
 HOSTNAME="0.0.0.0" node server.js
