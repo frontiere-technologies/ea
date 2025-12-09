@@ -1,0 +1,142 @@
+# Neo4j values per k3d (locale)
+# Configurazione minima per ambiente di sviluppo
+
+neo4j:
+  name: "neo4j-local"
+  password: "neo4j123"
+  edition: "community"
+  
+  # Risorse minime per sviluppo locale
+  resources:
+    cpu: "500m"
+    memory: "2Gi"
+
+# Volumi per Neo4j
+volumes:
+  data:
+    mode: "defaultStorageClass"
+    defaultStorageClass:
+      accessModes:
+        - ReadWriteOnce
+      requests:
+        storage: 2Gi
+  
+  # Condividi il volume data per backups, logs, metrics, import, licenses
+  backups:
+    mode: "share"
+    share:
+      name: "data"
+  
+  logs:
+    mode: "share"
+    share:
+      name: "data"
+  
+  metrics:
+    mode: "share"
+    share:
+      name: "data"
+  
+  import:
+    mode: "share"
+    share:
+      name: "data"
+  
+  licenses:
+    mode: "share"
+    share:
+      name: "data"
+
+# Configurazione Neo4j
+config:
+  server.config.strict_validation.enabled: "false"
+  # Memoria minima per ambiente locale
+  server.memory.pagecache.size: "256M"
+  server.memory.heap.initial_size: "512M"
+  server.memory.heap.max_size: "512M"
+
+# Servizi
+services:
+  neo4j:
+    enabled: true
+    spec:
+      type: ClusterIP  # ClusterIP per ambiente locale (non LoadBalancer)
+    ports:
+      http:
+        enabled: true
+      https:
+        enabled: false  # HTTPS disabilitato per locale
+      bolt:
+        enabled: true
+      backup:
+        enabled: false
+  
+  admin:
+    enabled: true
+    spec:
+      type: ClusterIP
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 7474
+  runAsGroup: 7474
+  fsGroup: 7474
+  fsGroupChangePolicy: "Always"
+
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 7474
+  runAsGroup: 7474
+  capabilities:
+    drop: ["ALL"]
+
+# Probes ridotte per ambiente locale
+readinessProbe:
+  tcpSocket:
+    port: 7687
+  failureThreshold: 10
+  timeoutSeconds: 5
+  periodSeconds: 5
+
+livenessProbe:
+  tcpSocket:
+    port: 7687
+  failureThreshold: 20
+  timeoutSeconds: 5
+  periodSeconds: 5
+
+startupProbe:
+  tcpSocket:
+    port: 7687
+  failureThreshold: 60
+  periodSeconds: 5
+
+# Immagine
+image:
+  imagePullPolicy: IfNotPresent
+
+# Pod spec
+podSpec:
+  podAntiAffinity: false  # Disabilitato per ambiente locale single-node
+  terminationGracePeriodSeconds: 60  # Ridotto per ambiente locale
+
+# Log password durante install
+logInitialPassword: true
+
+# JVM configurazione minima
+jvm:
+  useNeo4jDefaultJvmArguments: true
+  additionalJvmArguments: []
+
+# Pod Disruption Budget disabilitato per locale
+podDisruptionBudget:
+  enabled: false
+
+# Service Monitor disabilitato
+serviceMonitor:
+  enabled: false
+
+# Analytics disabilitato
+analytics:
+  enabled: false

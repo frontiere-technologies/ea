@@ -1,0 +1,47 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.projectName }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.ingressClass | default "azure/application-gateway" | quote }}
+    {{- if .Values.ingress.staticIpName }}
+    appgw.ingress.kubernetes.io/appgw-static-ip: {{ .Values.ingress.staticIpName | quote }}
+    {{- end }}
+    {{- if .Values.ingress.sslRedirect }}
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- end }}
+    {{- if .Values.ingress.certificateName }}
+    appgw.ingress.kubernetes.io/appgw-ssl-certificate: {{ .Values.ingress.certificateName | quote }}
+    {{- end }}
+    {{- if .Values.ingress.backendProtocol }}
+    appgw.ingress.kubernetes.io/backend-protocol: {{ .Values.ingress.backendProtocol | quote }}
+    {{- end }}
+    {{- if .Values.ingress.healthProbeHostHeader }}
+    appgw.ingress.kubernetes.io/health-probe-hostname: {{ .Values.ingress.healthProbeHostHeader | quote }}
+    {{- end }}
+    {{- if .Values.ingress.healthProbePath }}
+    appgw.ingress.kubernetes.io/health-probe-path: {{ .Values.ingress.healthProbePath | quote }}
+    {{- end }}    
+spec:
+  {{- if .Values.ingress.tlsEnabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      {{- if .Values.ingress.tlsSecretName }}
+      secretName: {{ .Values.ingress.tlsSecretName }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: {{ .Values.projectName }}
+                port:
+                  number: {{ .Values.ingress.servicePort }}
+{{- end }}

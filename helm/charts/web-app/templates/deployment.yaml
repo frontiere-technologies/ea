@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.projectName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.projectName }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.projectName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.projectName }}
+    spec:
+      securityContext:
+        fsGroup: {{ .Values.deployment.securityContext.fsGroup }}
+        runAsUser: {{ .Values.deployment.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.deployment.securityContext.runAsGroup }}
+      restartPolicy: {{ .Values.deployment.securityContext.restartPolicy | default "Always" }}
+      containers:
+        - name: {{ .Values.projectName }}
+          image: {{ if .Values.deployment.image.registry }}{{ .Values.deployment.image.registry }}/{{ end }}{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy | default "Always" }}
+          ports:
+            - containerPort: {{ .Values.deployment.containerPort }}
+          env:
+{{- if .Values.configMap }}
+            # From ConfigMap
+{{- range $key, $value := .Values.configMap }}
+            - name: {{ $key }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $.Values.projectName }}
+                  key: {{ $key }}
+{{- end }}
+{{- end }}
+{{- if .Values.secret }}
+            # From Secret
+{{- range $key, $value := .Values.secret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.projectName }}
+                  key: {{ $key }}
+{{- end }}
+{{- end }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deployment.liveness.path | default .Values.ingress.healthProbePath }}
+              port: {{ .Values.deployment.containerPort }}
+            initialDelaySeconds: {{ .Values.deployment.liveness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.deployment.liveness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.deployment.liveness.timeoutSeconds | default 1 }}
+            failureThreshold: {{ .Values.deployment.liveness.failureThreshold | default 3 }}
+            successThreshold: {{ .Values.deployment.liveness.successThreshold | default 1 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.deployment.readiness.path | default .Values.ingress.healthProbePath }}
+              port: {{ .Values.deployment.containerPort }}
+            initialDelaySeconds: {{ .Values.deployment.readiness.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .Values.deployment.readiness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.deployment.readiness.timeoutSeconds | default 1 }}
+            failureThreshold: {{ .Values.deployment.readiness.failureThreshold | default 3 }}
+            successThreshold: {{ .Values.deployment.readiness.successThreshold | default 1 }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.deployment.startup.path | default .Values.ingress.healthProbePath }}
+              port: {{ .Values.deployment.containerPort }}
+            initialDelaySeconds: {{ .Values.deployment.startup.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .Values.deployment.startup.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.deployment.startup.timeoutSeconds | default 1 }}
+            failureThreshold: {{ .Values.deployment.startup.failureThreshold | default 60 }}

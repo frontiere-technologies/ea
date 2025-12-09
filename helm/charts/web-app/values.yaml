@@ -1,0 +1,83 @@
+# Project Name
+projectName: web-app
+
+# Namespace
+namespace: ns-ea
+
+# Deployment
+deployment:
+  replicas: 1
+  containerPort: 3000
+  image:
+    registry: ""  # e.g., docker.io, ghcr.io, or your private registry
+    repository: ea/web-app
+    tag: latest
+    pullPolicy: Always
+  securityContext:
+    fsGroup: 1000
+    runAsUser: 1001
+    runAsGroup: 1001
+    restartPolicy: Always
+  liveness:
+    path: "/"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    path: "/"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  startup:
+    path: "/"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 60
+
+# HPA
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  averageUtilization: 80
+
+# ConfigMap - Non-sensitive configuration
+configMap:
+  NEO4J_URI: ""
+  NEO4J_USERNAME: ""
+  POSTGRES_HOST: ""
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: ""
+  POSTGRES_DB: ""
+
+# Secret - Sensitive credentials only
+secret:
+  NEO4J_PASSWORD: ""
+  POSTGRES_PASSWORD: ""
+  DATABASE_URL: ""  # Full connection string with password
+
+# Service
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+  portName: http
+  internal: true
+
+# Ingress
+ingress:
+  enabled: true
+  ingressClass: "nginx"
+  host: "ea.example.com"
+  servicePort: 3000
+  # TLS/SSL settings
+  tlsEnabled: true
+  tlsSecretName: ""  # Optional: for cert-manager or manual certificate
+  sslRedirect: true
+  backendProtocol: "http"
+  healthProbePath: "/"

@@ -1,0 +1,3 @@
+faker
+neo4j
+python-dotenv
