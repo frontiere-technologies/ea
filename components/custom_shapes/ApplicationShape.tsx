@@ -37,6 +37,10 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
     const { name, icons = [], w, h } = shape.props;
     const fontSize = h * 0.15;
 
+    const limitedIcons = icons.length ? icons.slice(0, 4) : [];
+    const iconSquareSize = w / 6;
+    const iconImgSize = iconSquareSize * 0.66;
+
     return (
       <HTMLContainer style={{ pointerEvents: "auto" }}>
         <div
@@ -66,13 +70,9 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
           >
             {name}
           </div>
-
-          {/*
-          // commented for potential future use
-          const limitedIcons = icons.length ? icons.slice(0, 4) : [];
-          const iconSquareSize = w / 6;
-          const iconImgSize = iconSquareSize * 0.66;
-
+          
+          {
+          // icons
           <div
             style={{
               display: "flex",
@@ -111,7 +111,7 @@ export class ApplicationShapeUtil extends BaseBoxShapeUtil<ApplicationShape> {
               </div>
             ))}
           </div>
-          */}
+          }
         </div>
       </HTMLContainer>
     );

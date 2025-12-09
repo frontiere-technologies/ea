@@ -51,6 +51,7 @@ import {
   getFlowLabels,
   getFlowGraphByLabel,
 } from "@/lib/neo4jUtils";
+import { getIconsForApplication } from "@/lib/utils";
 
 interface Application {
   id: string;
@@ -60,6 +61,7 @@ interface Application {
 interface DragDropItem extends Application {
   selected: boolean;
   type: "shape" | "label" | "image";
+  icons: string[];
 }
 
 export function DrawingEditor() {
@@ -97,14 +99,16 @@ export function DrawingEditor() {
       if (result && result.length > 0) {
         const apps = result.map((r: any) => r.a);
         setApplications(apps);
-
+        
         const transformedData: DragDropItem[] = apps.map((item: any) => ({
           id: item.properties.application_id,
           name: item.properties.name,
           selected: false,
           type: "shape",
+          icons: getIconsForApplication(item),
         }));
-
+        console.log("Applications fetched: ", result);
+        console.log("Transformed Applications: ", transformedData);
         setDragDropApplications(transformedData);
       } else {
         toast.error("Failed to load applications");
@@ -359,7 +363,7 @@ export function DrawingEditor() {
 
         const fromShapeId = objShapes[from]; //`shape:${from}`;
         const toShapeId = objShapes[to]; //`shape:${to}`;
-
+        const fromShape = editor.getShape(fromShapeId);
         //console.log("from ", objShapes[from])
         //console.log("to ", objShapes[to])
 
@@ -372,6 +376,7 @@ export function DrawingEditor() {
             props: {
               text: name,
               arrowheadEnd: "arrow",
+              icons: fromShape?.props?.icons ?? [],
               bend: (index - (total - 1) / 2) * 80 * (isForward ? 1 : -1),
               start: { x: 0, y: 0 }, // Questi verranno poi overridati dai binding
               end: { x: 0, y: 0 },   // Questi verranno poi overridati dai binding
